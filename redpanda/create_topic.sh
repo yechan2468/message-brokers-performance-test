@@ -1,0 +1,1 @@
+docker exec -it redpanda-0 rpk topic create redpanda
