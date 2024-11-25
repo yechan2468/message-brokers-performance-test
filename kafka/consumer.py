@@ -53,9 +53,10 @@ def benchmark(consumer, results):
         latency = receive_time - message.timestamp()[1] / 1000.0  # in seconds
             
         rx_bytes = consumer_stats["rx_bytes"][-1]
-        consumer_lag = consumer_stats["consumer_lag"][-1]
+        lags = consumer_stats["consumer_lag"][-1]
+        lag = lags[0] if 0 in lags else 0
 
-        results.append([receive_time, payload_size, rx_bytes, latency, consumer_lag])
+        results.append([receive_time, payload_size, rx_bytes, latency, lag])
     
     return results
 
