@@ -11,12 +11,17 @@ RESULTS_DIR = "results/"
 def read_data():
     producer_data = {}
     consumer_data = {}
+    resource_usage_data = {}
 
     for broker in BROKERS:
         producer_data[broker] = read_producer_data(broker)
         consumer_data[broker] = read_consumer_data(broker)
 
-    return producer_data, consumer_data
+        resource_usage_data[broker] = {}
+        resource_usage_data[broker]['cpu'] = read_cpu_usage_data(broker)
+        resource_usage_data[broker]['memory'] = read_memory_usage_data(broker)
+
+    return producer_data, consumer_data, resource_usage_data
 
 
 def read_producer_data(broker):
@@ -41,6 +46,36 @@ def read_consumer_data(broker):
     result['lag'] = result['lag']
 
     return result
+
+
+def read_cpu_usage_data(broker):
+    filename = f'../{broker}/cpu_usage.csv'
+    cpu_df = pd.read_csv(filename, sep=",")
+    cpu_df['timestamp'] = pd.to_datetime(cpu_df['Time'])
+    cpu_df['cpu_usage'] = (
+        cpu_df["Busy System"].str.rstrip('%').astype(float) +
+        cpu_df["Busy User"].str.rstrip('%').astype(float) +
+        cpu_df["Busy Iowait"].str.rstrip('%').astype(float) +
+        cpu_df["Busy IRQs"].str.rstrip('%').astype(float) +
+        cpu_df["Busy Other"].str.rstrip('%').astype(float)
+    )
+
+    return cpu_df
+
+
+def read_memory_usage_data(broker):
+    filename = f'../{broker}/memory_usage.csv'
+    memory_df = pd.read_csv(filename, sep=",")
+    memory_df['timestamp'] = pd.to_datetime(memory_df['Time'])
+    memory_df['RAM Used'] = memory_df['RAM Used'].apply(
+        lambda x: float(x.rstrip(" MiB")) / 1024 if "MiB" in x else float(x.rstrip(" GiB"))
+    )
+    memory_df['RAM Cache + Buffer'] = memory_df['RAM Cache + Buffer'].apply(
+        lambda x: float(x.rstrip(" MiB")) / 1024 if "MiB" in x else float(x.rstrip(" GiB"))
+    )
+    memory_df['memory_usage'] = memory_df['RAM Used'] + memory_df['RAM Cache + Buffer']
+
+    return memory_df
 
 
 def initialize_directory():
@@ -136,28 +171,26 @@ def draw_latency_graph(consumer_data):
     ax.set_ylabel("Latency (seconds)")
     plt.tight_layout()
     save_plot(fig, 'latency.png')
-    plt.close(fig)
 
 
 def draw_latency_histogram(consumer_data):
     fig, axes = plt.subplots(len(consumer_data), 1, figsize=(10, 4 * len(consumer_data)), sharex=True)
 
-    for idx, (framework, data) in enumerate(consumer_data.items()):
+    for idx, (broker, data) in enumerate(consumer_data.items()):
         ax = axes[idx] if len(consumer_data) > 1 else axes
         sns.histplot(data['latency'], kde=True, stat='probability', bins=30, ax=ax)
-        ax.set_title(f"{framework} Latency PDF")
+        ax.set_title(f"{broker} Latency PDF")
         ax.set_xlabel("Latency (seconds)")
         ax.set_ylabel("Probability")
 
     plt.tight_layout()
     save_plot(fig, 'latency_histogram.png')
-    plt.close(fig)
 
 
 def draw_lag_graph(consumer_data):
     fig, ax = plt.subplots(figsize=(12, 6))
-    for framework in consumer_data:
-        ax.plot(consumer_data[framework]['timestamp'], consumer_data[framework]['lag'], label=framework)
+    for broker in consumer_data:
+        ax.plot(consumer_data[broker]['timestamp'], consumer_data[broker]['lag'], label=broker)
 
     ax.set_title("Consumer Lag Over Time")
     ax.set_xlabel("Time")
@@ -165,10 +198,35 @@ def draw_lag_graph(consumer_data):
     ax.legend()
     plt.tight_layout()
     save_plot(fig, 'lag.png')
-    plt.close(fig)
 
 
-def draw_graphs(producer_data, consumer_data):
+def draw_cpu_usage_graph(resource_usage_data):
+    for broker in BROKERS:
+        data = resource_usage_data[broker]['cpu']
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.plot(data['timestamp'], data['cpu_usage'], label="CPU Usage")
+        ax.set_title("CPU Usage Over Time")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("CPU Usage (%)")
+        ax.legend()
+        plt.tight_layout()
+        save_plot(fig, f'{broker}_cpu_usage.png')
+
+
+def draw_memory_usage_graph(resource_usage_data):
+    for broker in BROKERS:
+        data = resource_usage_data[broker]['memory']
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.plot(data['timestamp'], data['memory_usage'], label="Memory Usage (GiB)")
+        ax.set_title("Memory Usage Over Time")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Memory Usage (GiB)")
+        ax.legend()
+        plt.tight_layout()
+        save_plot(fig, f'{broker}_memory_usage.png')
+
+
+def draw_graphs(producer_data, consumer_data, resource_usage_data):
     draw_throughput_byterate_graph(producer_data, consumer_data)
 
     draw_producer_throughput_comparison_graph(producer_data)
@@ -181,16 +239,19 @@ def draw_graphs(producer_data, consumer_data):
 
     draw_lag_graph(consumer_data)
 
+    draw_cpu_usage_graph(resource_usage_data)
+    draw_memory_usage_graph(resource_usage_data)
+
 
 def main():
     print('reading data...')
-    producer_data, consumer_data = read_data()
+    producer_data, consumer_data, resource_usage_data = read_data()
     print('successfully read data.')
 
     initialize_directory()
 
     print('drawing graphs...')
-    draw_graphs(producer_data, consumer_data)
+    draw_graphs(producer_data, consumer_data, resource_usage_data)
     print('successfully drew graphs.')
 
     print('done.')

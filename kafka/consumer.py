@@ -43,8 +43,6 @@ def benchmark(consumer, results):
         if message is None:
             continue
         if message.error():
-            if message.error().code() == KafkaException._PARTITION_EOF:
-                continue
             print(f"Consumer error: {message.error()}")
             break
             

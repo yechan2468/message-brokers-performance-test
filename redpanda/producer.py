@@ -9,6 +9,9 @@ TOPIC = 'redpanda'
 BROKER = 'localhost:19092'
 BENCHMARK_DURATION_SECONDS = 60
 
+MESSAGE_MIN_SIZE = 100
+MESSAGE_MAX_SIZE = 1000
+
 STAT_INTERVAL_MS = 10 * 1000
 
 RESULT_CSV_FILENAME = 'producer_metrics.csv'
@@ -24,7 +27,7 @@ def stats_callback(stats_json_str):
 
 
 def get_random_string():
-    length = random.randint(5, 100)
+    length = random.randint(MESSAGE_MIN_SIZE, MESSAGE_MAX_SIZE)
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
