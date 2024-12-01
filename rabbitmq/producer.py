@@ -27,14 +27,16 @@ def initialize():
 
 
 def benchmark(channel, results):
-    message = get_random_string()
-    message_size = len(message)
-    byte_size = len(message.encode('utf-8'))
+    start_time = time.time()
+    while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
+        message = get_random_string()
+        message_size = len(message)
+        byte_size = len(message.encode('utf-8'))
 
-    properties = pika.BasicProperties(timestamp=int(time.time()))
-    channel.basic_publish(exchange='', routing_key=QUEUE, body=message, properties=properties)
-        
-    results.append([time.time(), message_size, byte_size])
+        properties = pika.BasicProperties(timestamp=int(time.time()))
+        channel.basic_publish(exchange='', routing_key=QUEUE, body=message, properties=properties)
+            
+        results.append([time.time(), message_size, byte_size])
 
 
 def write_results_to_csv(results):
@@ -47,16 +49,17 @@ def write_results_to_csv(results):
 def main():
     connection, channel = initialize()
     results = []
-    start_time = time.time()
     
-    while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
+    try:
         benchmark(channel, results)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        connection.close()
 
-    connection.close()
-
-    print('writing results to csv...')
-    write_results_to_csv(results)
-    print('done.')
+        print('writing results to csv...')
+        write_results_to_csv(results)
+        print('done.')
 
 
 if __name__ == "__main__":

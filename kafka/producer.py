@@ -46,7 +46,8 @@ def initialize():
     return producer
 
 
-def benchmark(producer, start_time, results):
+def benchmark(producer, results):
+    start_time = time.time()
     while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
         message = get_random_string().encode('utf-8')
         message_size = len(message.decode('utf-8'))
@@ -73,11 +74,10 @@ def main():
     global producer_stats
 
     producer = initialize()
-    start_time = time.time()
     results = []
     
     try:
-        benchmark(producer, start_time, results)
+        benchmark(producer, results)
     except KeyboardInterrupt:
         pass
     finally:
