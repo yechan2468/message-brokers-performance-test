@@ -7,10 +7,10 @@ import asyncio
 
 
 BROKER_HOST = "localhost"
-BENCHMARK_DURATION_SECONDS = 60
+BENCHMARK_DURATION_SECONDS = 60 * 60
 
-MESSAGE_MIN_SIZE = 100
-MESSAGE_MAX_SIZE = 1000
+MESSAGE_MIN_SIZE = 10_000
+MESSAGE_MAX_SIZE = 1_000_000
 
 STATION_NAME = "memphis-station"
 PRODUCER_NAME = "memphis-producer"
@@ -52,7 +52,7 @@ async def benchmark(producer):
 def write_results_to_csv(results):
     with open(RESULT_CSV_FILENAME, mode="w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp", "message_size", "total_bytes"])
+        csv_writer.writerow(["timestamp", "message_size", "byte_size"])
         csv_writer.writerows(results)
 
 

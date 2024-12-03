@@ -7,10 +7,10 @@ import json
 
 TOPIC = 'kafka'
 BROKER = 'localhost:9092'
-BENCHMARK_DURATION_SECONDS = 60
+BENCHMARK_DURATION_SECONDS = 60 * 60
 
-MESSAGE_MIN_SIZE = 100
-MESSAGE_MAX_SIZE = 1000
+MESSAGE_MIN_SIZE = 10_000
+MESSAGE_MAX_SIZE = 1_000_000
 
 STAT_INTERVAL_MS = 10 * 1000
 
@@ -51,8 +51,11 @@ def benchmark(producer, results):
     while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
         message = get_random_string().encode('utf-8')
         message_size = len(message.decode('utf-8'))
-            
-        producer.produce(TOPIC, message, callback=report_delivery)
+        
+        try:
+            producer.produce(TOPIC, message, callback=report_delivery)
+        except Exception as e:
+            print(e)
         producer.poll(0)
             
         results.append([time.time(), message_size, producer_stats["tx_bytes"][-1]])

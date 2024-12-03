@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-BROKERS = ["kafka", "redpanda"]
+BROKERS = ["kafka", "redpanda", "memphis", "rabbitmq"]
 RESULTS_DIR = "results/"
 
 
@@ -14,12 +14,14 @@ def read_data():
     resource_usage_data = {}
 
     for broker in BROKERS:
+        print(f'reading data from {broker}...', end=' ')
         producer_data[broker] = read_producer_data(broker)
         consumer_data[broker] = read_consumer_data(broker)
 
         resource_usage_data[broker] = {}
         resource_usage_data[broker]['cpu'] = read_cpu_usage_data(broker)
         resource_usage_data[broker]['memory'] = read_memory_usage_data(broker)
+        print('done.')
 
     return producer_data, consumer_data, resource_usage_data
 
