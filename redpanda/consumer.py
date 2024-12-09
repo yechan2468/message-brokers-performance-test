@@ -1,7 +1,7 @@
 import time
 import json
 import csv
-from confluent_kafka import Consumer, KafkaException
+from confluent_kafka import Consumer
 
 TOPIC = 'redpanda'
 BROKER = 'localhost:19092'
