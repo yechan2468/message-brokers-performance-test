@@ -1,2 +1,2 @@
 source ./venv/bin/activate
-python ./visualizer.py
+python ./main.py

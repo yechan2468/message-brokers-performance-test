@@ -1,16 +1,23 @@
 import time
+from datetime import datetime
 import random
 import string
 import csv
-from memphis import Memphis
+import os
 import asyncio
+from memphis import Memphis
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 BROKER_HOST = "localhost"
-BENCHMARK_DURATION_SECONDS = 60 * 60
+BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
-MESSAGE_MIN_SIZE = 10_000
-MESSAGE_MAX_SIZE = 1_000_000
+DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
+
+MESSAGE_MIN_SIZE = int(os.getenv('MESSAGE_MIN_SIZE'))
+MESSAGE_MAX_SIZE = int(os.getenv('MESSAGE_MAX_SIZE'))
 
 STATION_NAME = "memphis-station"
 PRODUCER_NAME = "memphis-producer"
@@ -39,13 +46,15 @@ def get_random_string():
 
 def generate_dataset():
     dataset = []
-    len_dataset = 10_000
-    for i in range(len_dataset):
+    for i in range(DATASET_SIZE):
         message = get_random_string()
         message_size = len(message)
-        dataset.append({message.encode('utf-8'), message_size})
+        dataset.append({
+            'message': message.encode('utf-8'), 
+            'message_size': message_size
+        })
         if i % 500 == 0:
-            print(f'generating dataset... ({(i/len_dataset)*100}%, {i} / {len_dataset})')
+            print(f'generating dataset... ({(i/DATASET_SIZE)*100}%, {i} / {DATASET_SIZE})')
     
     print('successfully generated dataset.')
     return dataset
@@ -55,15 +64,15 @@ async def benchmark(producer, dataset):
     global results, total_bytes
     start_time = time.time()
     
-    print(f'starting benchmark... start time={start_time}')
+    print(f'starting benchmark... start time={datetime.now()}')
     counter = 0
-    while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
-        data = dataset[counter]
+    while time.time() - start_time < BENCHMARK_DURATION_MINUTES * 60:
+        data = dataset[counter % DATASET_SIZE]
 
-        await producer.produce(data.message)
+        await producer.produce(data['message'])
 
-        total_bytes += data.message_size
-        results.append([time.time(), data.message_size, total_bytes])
+        total_bytes += data['message_size']
+        results.append([time.time(), data['message_size'], total_bytes])
 
         counter += 1
 
@@ -87,7 +96,7 @@ async def main():
     finally:
         await memphis.close()
 
-        print(f'successfully performed benchmark. end time={time.time()}')
+        print(f'successfully performed benchmark. end time={datetime.now()}')
         print('writing results to csv...')
         write_results_to_csv(results)
         print('done')

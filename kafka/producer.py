@@ -1,17 +1,24 @@
 import random
 import string
 import time
+from datetime import datetime
 import csv
-from confluent_kafka import Producer
 import json
+import os
+from confluent_kafka import Producer
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 TOPIC = 'kafka'
 BROKER = 'localhost:9092'
-BENCHMARK_DURATION_SECONDS = 60 * 60
+BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
-MESSAGE_MIN_SIZE = 10_000
-MESSAGE_MAX_SIZE = 1_000_000
+DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
+
+MESSAGE_MIN_SIZE = int(os.getenv('MESSAGE_MIN_SIZE'))
+MESSAGE_MAX_SIZE = int(os.getenv('MESSAGE_MAX_SIZE'))
 
 STAT_INTERVAL_MS = 10 * 1000
 
@@ -49,13 +56,15 @@ def get_random_string():
 
 def generate_dataset():
     dataset = []
-    len_dataset = 10_000
-    for i in range(len_dataset):
+    for i in range(DATASET_SIZE):
         message = get_random_string()
         message_size = len(message)
-        dataset.append({message.encode('utf-8'), message_size})
+        dataset.append({
+            'message': message.encode('utf-8'),
+            'message_size': message_size
+        })
         if i % 500 == 0:
-            print(f'generating dataset... ({(i/len_dataset)*100}%, {i} / {len_dataset})')
+            print(f'generating dataset... ({(i/DATASET_SIZE)*100}%, {i} / {DATASET_SIZE})')
     
     print('successfully generated dataset.')
     return dataset
@@ -64,17 +73,17 @@ def generate_dataset():
 def benchmark(producer, dataset, results):
     start_time = time.time()
     
-    print(f'starting benchmark... start time={start_time}')
+    print(f'starting benchmark... start time={datetime.now()}')
     counter = 0
-    while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
-        data = dataset[counter]
+    while time.time() - start_time < BENCHMARK_DURATION_MINUTES * 60:
+        data = dataset[counter % DATASET_SIZE]
         try:
-            producer.produce(TOPIC, data.message, callback=report_delivery)
+            producer.produce(TOPIC, data['message'], callback=report_delivery)
         except Exception as e:
             print(e)
         producer.poll(0)
             
-        results.append([time.time(), data.message_size, producer_stats["tx_bytes"][-1]])
+        results.append([time.time(), data['message_size'], producer_stats["tx_bytes"][-1]])
         counter += 1
         
     producer.flush()
@@ -101,7 +110,9 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        print(f'successfully performed benchmark. end time={time.time()}')
+        producer.flush()
+
+        print(f'successfully performed benchmark. end time={datetime.now()}')
         print('writing results to csv...')
         write_results_to_csv(results)
         print('done.')
