@@ -29,7 +29,7 @@ def stats_callback(stats_json_str):
 
 def report_delivery(err, msg):
     if err is not None:
-        print(f'Message delivery failed: {err}')
+        print(f'Message delivery failed: {err}\n{msg}')
 
 
 def initialize():

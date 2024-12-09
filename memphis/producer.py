@@ -24,11 +24,6 @@ results = []
 total_bytes = 0
 
 
-def get_random_string():
-    length = random.randint(MESSAGE_MIN_SIZE, MESSAGE_MAX_SIZE)
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-
 async def initialize():
     memphis = Memphis()
     await memphis.connect(host=BROKER_HOST, username=USERNAME, password=PASSWORD)
@@ -36,17 +31,41 @@ async def initialize():
     return memphis,producer
 
 
-async def benchmark(producer):
+
+def get_random_string():
+    length = random.randint(MESSAGE_MIN_SIZE, MESSAGE_MAX_SIZE)
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+def generate_dataset():
+    dataset = []
+    len_dataset = 10_000
+    for i in range(len_dataset):
+        message = get_random_string()
+        message_size = len(message)
+        dataset.append({message.encode('utf-8'), message_size})
+        if i % 500 == 0:
+            print(f'generating dataset... ({(i/len_dataset)*100}%, {i} / {len_dataset})')
+    
+    print('successfully generated dataset.')
+    return dataset
+
+
+async def benchmark(producer, dataset):
     global results, total_bytes
     start_time = time.time()
+    
+    print(f'starting benchmark... start time={start_time}')
+    counter = 0
     while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
-        message = get_random_string()
-        message_size = len(message.encode('utf-8'))
+        data = dataset[counter]
 
-        await producer.produce(message)
+        await producer.produce(data.message)
 
-        total_bytes += message_size
-        results.append([time.time(), message_size, total_bytes])
+        total_bytes += data.message_size
+        results.append([time.time(), data.message_size, total_bytes])
+
+        counter += 1
 
 
 def write_results_to_csv(results):
@@ -59,14 +78,16 @@ def write_results_to_csv(results):
 async def main():
     global results
     memphis, producer = await initialize()
+    dataset = generate_dataset()
 
     try:
-        await benchmark(producer)
+        await benchmark(producer, dataset)
     except KeyboardInterrupt:
         pass
     finally:
         await memphis.close()
 
+        print(f'successfully performed benchmark. end time={time.time()}')
         print('writing results to csv...')
         write_results_to_csv(results)
         print('done')

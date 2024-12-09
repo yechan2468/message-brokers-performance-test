@@ -26,14 +26,9 @@ def stats_callback(stats_json_str):
     producer_stats["tx_bytes"].append(stats["tx_bytes"])
 
 
-def get_random_string():
-    length = random.randint(MESSAGE_MIN_SIZE, MESSAGE_MAX_SIZE)
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-
 def report_delivery(err, msg):
     if err is not None:
-        print(f'Message delivery failed: {err}')
+        print(f'Message delivery failed: {err}\n{msg}')
 
 
 def initialize():
@@ -46,18 +41,29 @@ def initialize():
     return producer
 
 
+def get_random_string():
+    length = random.randint(MESSAGE_MIN_SIZE, MESSAGE_MAX_SIZE)
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
 def generate_dataset():
     dataset = []
-    for _ in range(100_000):
+    len_dataset = 10_000
+    for i in range(len_dataset):
         message = get_random_string()
         message_size = len(message)
         dataset.append({message.encode('utf-8'), message_size})
+        if i % 500 == 0:
+            print(f'generating dataset... ({(i/len_dataset)*100}%, {i} / {len_dataset})')
     
+    print('successfully generated dataset.')
     return dataset
 
 
 def benchmark(producer, dataset, results):
     start_time = time.time()
+    
+    print(f'starting benchmark... start time={start_time}')
     counter = 0
     while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
         data = dataset[counter]
@@ -94,6 +100,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        print(f'successfully performed benchmark. end time={time.time()}')
         print('writing results to csv...')
         write_results_to_csv(results)
         print('done.')
