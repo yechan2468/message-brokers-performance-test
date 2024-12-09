@@ -46,16 +46,29 @@ def initialize():
     return producer
 
 
-def benchmark(producer, start_time, results):
+def generate_dataset():
+    dataset = []
+    for _ in range(100_000):
+        message = get_random_string()
+        message_size = len(message)
+        dataset.append({message.encode('utf-8'), message_size})
+    
+    return dataset
+
+
+def benchmark(producer, dataset, results):
+    start_time = time.time()
+    counter = 0
     while time.time() - start_time < BENCHMARK_DURATION_SECONDS:
-        message = get_random_string().encode('utf-8')
-        message_size = len(message.decode('utf-8'))
-            
-        producer.produce(TOPIC, message, callback=report_delivery)
+        data = dataset[counter]
+        try:
+            producer.produce(TOPIC, data.message, callback=report_delivery)
+        except Exception as e:
+            print(e)
         producer.poll(0)
             
-        results.append([time.time(), message_size, producer_stats["tx_bytes"][-1]])
-        time.sleep(0.1)
+        results.append([time.time(), data.message_size, producer_stats["tx_bytes"][-1]])
+        counter += 1
         
     producer.flush()
 
@@ -73,11 +86,11 @@ def main():
     global producer_stats
 
     producer = initialize()
-    start_time = time.time()
-    results = []
+    dataset = generate_dataset()
     
+    results = []
     try:
-        benchmark(producer, start_time, results)
+        benchmark(producer, dataset, results)
     except KeyboardInterrupt:
         pass
     finally:

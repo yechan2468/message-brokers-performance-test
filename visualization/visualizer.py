@@ -94,67 +94,196 @@ def save_plot(fig, filename):
     plt.close(fig)
 
 
-def draw_throughput_byterate_graph(producer_data, consumer_data):
+def draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
     for broker in BROKERS:
         prod_df = producer_data[broker]
         cons_df = consumer_data[broker]
-    
-        fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
-        axes[0].plot(prod_df['timestamp'], prod_df['throughput'], label="Producer Throughput")
-        axes[0].plot(cons_df['timestamp'], cons_df['throughput'], label="Consumer Throughput")
+
+        combined_data = pd.DataFrame({
+            "Type": (
+                ["Producer Throughput"] * len(prod_df) +
+                ["Producer Byterate"] * len(prod_df) +
+                ["Consumer Throughput"] * len(cons_df) +
+                ["Consumer Byterate"] * len(cons_df)
+            ),
+            "Value": pd.concat([
+                prod_df['throughput'], prod_df['byterate'],
+                cons_df['throughput'], cons_df['byterate']
+            ]).reset_index(drop=True)
+        })
+
+        fig, ax = plt.subplots(1, 1, figsize=(16, 6))
+        sns.boxplot(data=combined_data, x="Type", y="Value", ax=ax, showfliers=False)
+        ax.set_title(f"{broker} Throughput and Byterate (Box Plot)")
+        ax.set_ylabel("Value")
+        ax.set_xlabel("")
+
+        for i, category in enumerate(combined_data["Type"].unique()):
+            stats = combined_data[combined_data["Type"] == category]["Value"].describe()
+            ax.annotate(
+                f"Mean: {stats['mean']:.4f}\nMedian: {stats['50%']:.4f}\nStddev: {stats['std']:.4f}\n"
+                f"Max: {stats['max']:.4f}\nMin: {stats['min']:.4f}",
+                xy=(i, stats['75%']),
+                xytext=(0, 10),
+                textcoords='offset points',
+                ha='center',
+                fontsize=8
+            )
+
+        plt.tight_layout()
+        save_plot(fig, f"{broker}_throughput_byterate_boxplot.png")
+
+
+def draw_consumer_throughput_byterate_graph(consumer_data):
+    for broker in BROKERS:
+        cons_df = consumer_data[broker]
+
+        throughput_data = pd.DataFrame({
+            "Type": ["Consumer Throughput"] * len(cons_df),
+            "Throughput": cons_df['throughput']
+        }).reset_index(drop=True)
+
+        byterate_data = pd.DataFrame({
+            "Type": ["Consumer Byterate"] * len(cons_df),
+            "Byterate": cons_df['byterate']
+        }).reset_index(drop=True)
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6), sharey=False)
+
+        sns.boxplot(data=throughput_data, x="Type", y="Throughput", ax=axes[0], showfliers=False)
+        axes[0].set_title(f"{broker} Consumer Throughput (Box Plot)")
         axes[0].set_ylabel("Throughput (messages/s)")
-        axes[0].legend()
-    
-        axes[1].plot(prod_df['timestamp'], prod_df['byterate'], label="Producer Byterate")
-        axes[1].plot(cons_df['timestamp'], cons_df['byterate'], label="Consumer Byterate")
+        axes[0].set_xlabel("")
+        stats = throughput_data["Throughput"].describe()
+        axes[0].annotate(
+            f"Mean: {stats['mean']:.4f}\nMedian: {stats['50%']:.4f}\nStddev: {stats['std']:.4f}\nMax: {stats['max']:.4f}\nMin: {stats['min']:.4f}",
+            xy=(0, stats['75%']),
+            xytext=(0, 10),
+            textcoords='offset points',
+            ha='center',
+            fontsize=8
+        )
+
+        sns.boxplot(data=byterate_data, x="Type", y="Byterate", ax=axes[1], showfliers=False)
+        axes[1].set_title(f"{broker} Consumer Byterate (Box Plot)")
         axes[1].set_ylabel("Byterate (bytes/s)")
-        axes[1].legend()
-    
-        fig.suptitle(f"{broker} Throughput and Byterate")
-        save_plot(fig, f"{broker}_throughput_byterate.png")
+        axes[1].set_xlabel("")
+        stats = byterate_data["Byterate"].describe()
+        axes[1].annotate(
+            f"Mean: {stats['mean']:.4f}\nMedian: {stats['50%']:.4f}\nStddev: {stats['std']:.4f}\nMax: {stats['max']:.4f}\nMin: {stats['min']:.4f}",
+            xy=(0, stats['75%']),
+            xytext=(0, 10),
+            textcoords='offset points',
+            ha='center',
+            fontsize=8
+        )
+
+        plt.tight_layout()
+        save_plot(fig, f"{broker}_consumer_throughput_byterate_boxplot.png")
 
 
-def draw_producer_throughput_comparison_graph(data):
-    fig, ax = plt.subplots(figsize=(12, 6))
+def draw_producer_throughput_byterate_boxplots(producer_data):
+    throughput_data = []
+    byterate_data = []
+
     for broker in BROKERS:
-        ax.plot(data[broker]['timestamp'], data[broker]['throughput'], label=broker)
-    ax.set_title("Producer Throughput Comparison")
-    ax.set_ylabel("Throughput (messages/s)")
-    ax.legend()
-    save_plot(fig, "producer_throughput_comparison.png")
+        df = producer_data[broker]
+
+        throughput_data.append(pd.DataFrame({
+            "Broker": [broker] * len(df),
+            "Value": df['throughput'],
+            "Metric": ["Producer Throughput"] * len(df)
+        }))
+
+        byterate_data.append(pd.DataFrame({
+            "Broker": [broker] * len(df),
+            "Value": df['byterate'],
+            "Metric": ["Producer Byterate"] * len(df)
+        }))
+
+    throughput_data = pd.concat(throughput_data).reset_index(drop=True)
+    byterate_data = pd.concat(byterate_data).reset_index(drop=True)
+
+    metrics = [
+        ("Producer Throughput Comparison", throughput_data),
+        ("Producer Byterate Comparison", byterate_data),
+    ]
+
+    for title, data in metrics:
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.boxplot(data=data, x="Broker", y="Value", ax=ax, showfliers=False)
+        ax.set_title(title)
+        ax.set_ylabel("Value")
+        ax.set_xlabel("Broker")
+
+        for i, broker in enumerate(data["Broker"].unique()):
+            stats = data[data["Broker"] == broker]["Value"].describe()
+            ax.annotate(
+                f"Mean: {stats['mean']:.4f}\nMedian: {stats['50%']:.4f}\nStddev: {stats['std']:.4f}\n"
+                f"Max: {stats['max']:.4f}\nMin: {stats['min']:.4f}",
+                xy=(i, stats['75%']),
+                xytext=(0, 10),
+                textcoords='offset points',
+                ha='center',
+                fontsize=8
+            )
+
+        plt.tight_layout()
+        save_plot(fig, f"{title.replace(' ', '_').lower()}.png")
 
 
-def draw_producer_byterate_comparison_graph(data):
-    fig, ax = plt.subplots(figsize=(12, 6))
+def draw_consumer_throughput_byterate_boxplots(consumer_data):
+    throughput_data = []
+    byterate_data = []
+
     for broker in BROKERS:
-        ax.plot(data[broker]['timestamp'], data[broker]['byterate'], label=broker)
-    ax.set_title("Producer Byterate Comparison")
-    ax.set_ylabel("Byterate (bytes/s)")
-    ax.legend()
-    save_plot(fig, "producer_byterate_comparison.png")
+        df = consumer_data[broker]
+
+        throughput_data.append(pd.DataFrame({
+            "Broker": [broker] * len(df),
+            "Value": df['throughput'],
+            "Metric": ["Consumer Throughput"] * len(df)
+        }))
+
+        byterate_data.append(pd.DataFrame({
+            "Broker": [broker] * len(df),
+            "Value": df['byterate'],
+            "Metric": ["Consumer Byterate"] * len(df)
+        }))
+
+    throughput_data = pd.concat(throughput_data).reset_index(drop=True)
+    byterate_data = pd.concat(byterate_data).reset_index(drop=True)
+
+    metrics = [
+        ("Consumer Throughput Comparison", throughput_data),
+        ("Consumer Byterate Comparison", byterate_data),
+    ]
+
+    for title, data in metrics:
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.boxplot(data=data, x="Broker", y="Value", ax=ax, showfliers=False)
+        ax.set_title(title)
+        ax.set_ylabel("Value")
+        ax.set_xlabel("Broker")
+
+        for i, broker in enumerate(data["Broker"].unique()):
+            stats = data[data["Broker"] == broker]["Value"].describe()
+            ax.annotate(
+                f"Mean: {stats['mean']:.4f}\nMedian: {stats['50%']:.4f}\nStddev: {stats['std']:.4f}\n"
+                f"Max: {stats['max']:.4f}\nMin: {stats['min']:.4f}",
+                xy=(i, stats['75%']),
+                xytext=(0, 10),
+                textcoords='offset points',
+                ha='center',
+                fontsize=8
+            )
+
+        plt.tight_layout()
+        save_plot(fig, f"{title.replace(' ', '_').lower()}.png")
 
 
-def draw_consumer_throughput_comparison_graph(data):
-    fig, ax = plt.subplots(figsize=(12, 6))
-    for broker in BROKERS:
-        ax.plot(data[broker]['timestamp'], data[broker]['throughput'], label=broker)
-    ax.set_title("Producer Throughput Comparison")
-    ax.set_ylabel("Throughput (messages/s)")
-    ax.legend()
-    save_plot(fig, "consumer_throughput_comparison.png")
 
-
-def draw_consumer_byterate_comparison_graph(data):
-    fig, ax = plt.subplots(figsize=(12, 6))
-    for broker in BROKERS:
-        ax.plot(data[broker]['timestamp'], data[broker]['byterate'], label=broker)
-    ax.set_title("Producer Byterate Comparison")
-    ax.set_ylabel("Byterate (bytes/s)")
-    ax.legend()
-    save_plot(fig, "consumer_byterate_comparison.png")
-
-
-def draw_latency_graph(consumer_data):
+def draw_latency_boxplot(consumer_data):
     fig, ax = plt.subplots(figsize=(10, 6))
     latency_data = pd.concat(
         [consumer_data[br][['latency']].assign(Broker=br) for br in consumer_data]
@@ -229,20 +358,17 @@ def draw_memory_usage_graph(resource_usage_data):
 
 
 def draw_graphs(producer_data, consumer_data, resource_usage_data):
-    draw_throughput_byterate_graph(producer_data, consumer_data)
+    draw_broker_throughput_byterate_boxplots(producer_data, consumer_data)
+    draw_producer_throughput_byterate_boxplots(producer_data)
+    draw_consumer_throughput_byterate_boxplots(consumer_data)
 
-    draw_producer_throughput_comparison_graph(producer_data)
-    draw_producer_byterate_comparison_graph(producer_data)
-    draw_consumer_throughput_comparison_graph(consumer_data)
-    draw_consumer_byterate_comparison_graph(consumer_data)
-
-    draw_latency_graph(consumer_data)
+    draw_latency_boxplot(consumer_data)
     draw_latency_histogram(consumer_data)
 
     draw_lag_graph(consumer_data)
 
-    draw_cpu_usage_graph(resource_usage_data)
-    draw_memory_usage_graph(resource_usage_data)
+    # draw_cpu_usage_graph(resource_usage_data)
+    # draw_memory_usage_graph(resource_usage_data)
 
 
 def main():

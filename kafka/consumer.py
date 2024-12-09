@@ -3,6 +3,7 @@ import json
 import csv
 from confluent_kafka import Consumer, KafkaException
 
+
 TOPIC = 'kafka'
 BROKER = 'localhost:9092'
 GROUP_ID = 'consumer-group'
