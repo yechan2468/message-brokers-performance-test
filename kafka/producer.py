@@ -13,18 +13,21 @@ load_dotenv()
 
 TOPIC = 'kafka'
 BROKER = 'localhost:9092'
+KAFKA_STAT_INTERVAL_MS = os.getenv('KAFKA_STAT_INTERVAL_MS')
+
+BENCHMARK_WARMUP_MINUTES = int(os.getenv('BENCHMARK_WARMUP_MINUTES'))
 BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
 DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
-
 MESSAGE_MIN_SIZE = int(os.getenv('MESSAGE_MIN_SIZE'))
 MESSAGE_MAX_SIZE = int(os.getenv('MESSAGE_MAX_SIZE'))
 
-STAT_INTERVAL_MS = 10 * 1000
-
-RESULT_CSV_FILENAME = 'producer_metrics.csv'
+RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
+PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
 producer_stats = {"tx_bytes": [0]}
+start_time = 0.
+end_time = 0.
 
 
 def stats_callback(stats_json_str):
@@ -43,7 +46,7 @@ def initialize():
     producer = Producer({
         'bootstrap.servers': BROKER,
         'stats_cb': stats_callback,
-        'statistics.interval.ms': STAT_INTERVAL_MS
+        'statistics.interval.ms': KAFKA_STAT_INTERVAL_MS
     })
     
     return producer
@@ -71,16 +74,18 @@ def generate_dataset():
 
 
 def benchmark(producer, dataset, results):
+    global start_time
     start_time = time.time()
     
     print(f'starting benchmark... start time={datetime.now()}')
     counter = 0
-    while time.time() - start_time < BENCHMARK_DURATION_MINUTES * 60:
+    benchmark_duration = (BENCHMARK_DURATION_MINUTES + BENCHMARK_WARMUP_MINUTES) * 60
+    while (time.time() - start_time) < benchmark_duration:
         data = dataset[counter % DATASET_SIZE]
         try:
             producer.produce(TOPIC, data['message'], callback=report_delivery)
         except Exception as e:
-            print(e)
+            pass
         producer.poll(0)
             
         results.append([time.time(), data['message_size'], producer_stats["tx_bytes"][-1]])
@@ -91,15 +96,21 @@ def benchmark(producer, dataset, results):
     return results
 
 
+def write_benchmark_time():
+    global start_time, end_time
+    with open(RESULT_BENCHMARK_TIME_FILENAME, mode="w", newline="") as text_file:
+        text_file.write(f'{start_time},{end_time}')
+
+
 def write_results_to_csv(results):
-    with open(RESULT_CSV_FILENAME, mode='w', newline='') as csv_file:
+    with open(PRODUCER_RESULT_CSV_FILENAME, mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'byte_size'])
         csv_writer.writerows(results)
 
 
 def main():
-    global producer_stats
+    global producer_stats, end_time
 
     producer = initialize()
     dataset = generate_dataset()
@@ -111,9 +122,11 @@ def main():
         pass
     finally:
         producer.flush()
+        end_time = time.time()
 
         print(f'successfully performed benchmark. end time={datetime.now()}')
-        print('writing results to csv...')
+        print('writing results...')
+        write_benchmark_time()
         write_results_to_csv(results)
         print('done.')
 

@@ -27,6 +27,8 @@ async def initialize():
     return memphis,consumer
 
 
+
+
 async def benchmark(consumer):
     global results, total_bytes
 
@@ -36,11 +38,11 @@ async def benchmark(consumer):
             message_size = len(message.get_data().decode('utf-8'))
             total_bytes += sys.getsizeof(message)
 
+            headers = message.get_headers()
+            time_sent = float(headers['time_sent'])
+
             receive_time = time.time()
-            if message.get_timesent() is not None:
-                latency = receive_time - message.get_timesent()
-            else:
-                latency = -1
+            latency = receive_time - time_sent
 
             results.append([receive_time, message_size, latency, total_bytes])
 

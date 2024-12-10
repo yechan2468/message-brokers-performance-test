@@ -8,12 +8,12 @@ from file_io import save_plot
 
 load_dotenv()
 
-BROKERS = os.getenv('BROKERS').split(',')
-RESULTS_DIR = os.getenv('RESULTS_DIR')
+VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
+VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 
 
 def draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
-    for broker in BROKERS:
+    for broker in VISUALIZATION_BROKERS:
         prod_df = producer_data[broker]
         cons_df = consumer_data[broker]
 
@@ -53,7 +53,7 @@ def draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
 
 
 def draw_consumer_throughput_byterate_graph(consumer_data):
-    for broker in BROKERS:
+    for broker in VISUALIZATION_BROKERS:
         cons_df = consumer_data[broker]
 
         throughput_data = pd.DataFrame({
@@ -104,7 +104,7 @@ def draw_producer_throughput_byterate_boxplots(producer_data):
     throughput_data = []
     byterate_data = []
 
-    for broker in BROKERS:
+    for broker in VISUALIZATION_BROKERS:
         df = producer_data[broker]
 
         throughput_data.append(pd.DataFrame({
@@ -154,7 +154,7 @@ def draw_consumer_throughput_byterate_boxplots(consumer_data):
     throughput_data = []
     byterate_data = []
 
-    for broker in BROKERS:
+    for broker in VISUALIZATION_BROKERS:
         df = consumer_data[broker]
 
         throughput_data.append(pd.DataFrame({
@@ -250,7 +250,7 @@ def draw_lag_graph(consumer_data):
 
 
 def draw_cpu_usage_graph(resource_usage_data):
-    for broker in BROKERS:
+    for broker in VISUALIZATION_BROKERS:
         data = resource_usage_data[broker]['cpu']
         fig, ax = plt.subplots(figsize=(12, 6))
         ax.plot(data['timestamp'], data['cpu_usage'], label="CPU Usage")
@@ -263,7 +263,7 @@ def draw_cpu_usage_graph(resource_usage_data):
 
 
 def draw_memory_usage_graph(resource_usage_data):
-    for broker in BROKERS:
+    for broker in VISUALIZATION_BROKERS:
         data = resource_usage_data[broker]['memory']
         fig, ax = plt.subplots(figsize=(12, 6))
         ax.plot(data['timestamp'], data['memory_usage'], label="Memory Usage (GiB)")

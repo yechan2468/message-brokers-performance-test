@@ -6,14 +6,15 @@ from file_io import *
 
 load_dotenv()
 
-BROKERS = os.getenv('BROKERS').split(',')
-RESULTS_DIR = os.getenv('RESULTS_DIR')
+VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
+VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
+BENCHMARK_WARMUP_MINUTES = int(os.getenv('BENCHMARK_WARMUP_MINUTES'))
 
 
 def initialize_directory():
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-    for file in os.listdir(RESULTS_DIR):
-        os.remove(os.path.join(RESULTS_DIR, file))
+    os.makedirs(VISUALIZATION_RESULTS_DIR, exist_ok=True)
+    for file in os.listdir(VISUALIZATION_RESULTS_DIR):
+        os.remove(os.path.join(VISUALIZATION_RESULTS_DIR, file))
 
 
 def read_data():
@@ -21,10 +22,13 @@ def read_data():
     consumer_data = {}
     resource_usage_data = {}
 
-    for broker in BROKERS:
+    for broker in VISUALIZATION_BROKERS:
         print(f'reading data from {broker}...', end=' ')
-        producer_data[broker] = read_producer_data(broker)
-        consumer_data[broker] = read_consumer_data(broker)
+        start_time, end_time = read_benchmark_time(broker)
+        start_time += BENCHMARK_WARMUP_MINUTES * 60
+
+        producer_data[broker] = read_producer_data(broker, start_time, end_time)
+        consumer_data[broker] = read_consumer_data(broker, start_time, end_time)
 
         resource_usage_data[broker] = {}
         resource_usage_data[broker]['cpu'] = read_cpu_usage_data(broker)

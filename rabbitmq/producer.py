@@ -13,14 +13,20 @@ load_dotenv()
 
 QUEUE = 'rabbitmq'
 BROKER = 'localhost'
+
+BENCHMARK_WARMUP_MINUTES = int(os.getenv('BENCHMARK_WARMUP_MINUTES'))
 BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
 DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
-
 MESSAGE_MIN_SIZE = int(os.getenv('MESSAGE_MIN_SIZE'))
 MESSAGE_MAX_SIZE = int(os.getenv('MESSAGE_MAX_SIZE'))
 
-RESULT_CSV_FILENAME = 'producer_metrics.csv'
+RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
+PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
+
+
+start_time = 0.
+end_time = 0.
 
 
 def initialize():
@@ -52,11 +58,13 @@ def generate_dataset():
 
 
 def benchmark(channel, dataset, results):
+    global start_time
     start_time = time.time()
 
     print(f'starting benchmark... start time={datetime.now()}')
     counter = 0
-    while time.time() - start_time < BENCHMARK_DURATION_MINUTES * 60:
+    benchmark_duration = (BENCHMARK_DURATION_MINUTES + BENCHMARK_WARMUP_MINUTES) * 60
+    while (time.time() - start_time) < benchmark_duration:
         data = dataset[counter % DATASET_SIZE]
         byte_size = len(data['message'])
 
@@ -67,14 +75,22 @@ def benchmark(channel, dataset, results):
         counter += 1
 
 
+def write_benchmark_time():
+    global start_time, end_time
+    with open(RESULT_BENCHMARK_TIME_FILENAME, mode="w", newline="") as text_file:
+        text_file.write(f'{start_time},{end_time}')
+
+
 def write_results_to_csv(results):
-    with open(RESULT_CSV_FILENAME, mode='w', newline='') as csv_file:
+    with open(PRODUCER_RESULT_CSV_FILENAME, mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'byte_size'])
         csv_writer.writerows(results)
 
 
 def main():
+    global end_time
+
     connection, channel = initialize()
     results = []
     dataset = generate_dataset()
@@ -85,9 +101,11 @@ def main():
         pass
     finally:
         connection.close()
+        end_time = time.time()
 
         print(f'successfully performed benchmark. end time={datetime.now()}')
-        print('writing results to csv...')
+        print('writing results...')
+        write_benchmark_time()
         write_results_to_csv(results)
         print('done.')
 
