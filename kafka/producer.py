@@ -5,6 +5,7 @@ from datetime import datetime
 import csv
 import json
 import os
+import sys
 from confluent_kafka import Producer
 from dotenv import load_dotenv
 
@@ -25,6 +26,11 @@ MESSAGE_MAX_SIZE = int(os.getenv('MESSAGE_MAX_SIZE'))
 RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
+PRODUCER_ID = 0
+MESSAGE_SIZE_KIB = 0
+VALID_PRODUCER_IDS = list(map(int, os.getenv('VALID_PRODUCER_IDS').split(',')))
+VALID_MESSAGE_SIZES_KIB = list(map(float, os.getenv('VALID_MESSAGE_SIZES_KIB').split(',')))
+
 producer_stats = {"tx_bytes": [0]}
 start_time = 0.
 end_time = 0.
@@ -40,6 +46,24 @@ def stats_callback(stats_json_str):
 def report_delivery(err, msg):
     if err is not None:
         print(f'Message delivery failed: {err}\n{msg}')
+
+
+def get_producer_parameters():
+    global PRODUCER_ID, MESSAGE_SIZE_KIB
+
+    if len(sys.argv) < 3:
+        print('python producer.py <producer id> <message size in KiB>')
+        exit()
+
+    PRODUCER_ID = int(sys.argv[1])
+    if PRODUCER_ID not in VALID_PRODUCER_IDS:
+        print(f'Number of producers should be one of {VALID_PRODUCER_IDS}, but received {PRODUCER_ID}')
+        exit()
+
+    MESSAGE_SIZE_KIB = float(sys.argv[2])
+    if MESSAGE_SIZE_KIB not in VALID_MESSAGE_SIZES_KIB:
+        print(f'Message size should be one of {VALID_MESSAGE_SIZES_KIB}, but received {MESSAGE_SIZE_KIB}')
+        exit()
 
 
 def initialize():
@@ -98,12 +122,12 @@ def benchmark(producer, dataset, results):
 
 def write_benchmark_time():
     global start_time, end_time
-    with open(RESULT_BENCHMARK_TIME_FILENAME, mode="w", newline="") as text_file:
+    with open(f'{RESULT_BENCHMARK_TIME_FILENAME}-{PRODUCER_ID}.txt', mode="w", newline="") as text_file:
         text_file.write(f'{start_time},{end_time}')
 
 
 def write_results_to_csv(results):
-    with open(PRODUCER_RESULT_CSV_FILENAME, mode='w', newline='') as csv_file:
+    with open(f'{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'byte_size'])
         csv_writer.writerows(results)
@@ -112,6 +136,7 @@ def write_results_to_csv(results):
 def main():
     global producer_stats, end_time
 
+    get_producer_parameters()
     producer = initialize()
     dataset = generate_dataset()
     
