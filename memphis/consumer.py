@@ -13,11 +13,10 @@ CONSUMER_GROUP_NAME = 'memphis-consumer-group'
 USERNAME = 'test2'
 PASSWORD = 'Test123456@!'
 
-RESULT_CSV_FILENAME = "consumer_metrics.csv"
+RESULT_CSV_FILENAME = "consumer_metrics"
 
 
 results = []
-total_bytes = 0
 
 
 async def initialize():
@@ -27,30 +26,30 @@ async def initialize():
     return memphis,consumer
 
 
-
-
 async def benchmark(consumer):
-    global results, total_bytes
+    global results
 
     while True:
+        t1 = time.time()
         messages = await consumer.fetch()
+        t2 = time.time()
+
         for message in messages:
             message_size = len(message.get_data().decode('utf-8'))
-            total_bytes += sys.getsizeof(message)
 
             headers = message.get_headers()
             time_sent = float(headers['time_sent'])
 
-            receive_time = time.time()
-            latency = receive_time - time_sent
+            latency = t2 - time_sent
+            processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
-            results.append([receive_time, message_size, latency, total_bytes])
+            results.append([t2, message_size, processing_time, latency, -1])
 
             await message.ack()
 
 
 def write_results_to_csv(results):
-    with open(RESULT_CSV_FILENAME, mode="w", newline="") as csv_file:
+    with open(f'{RESULT_CSV_FILENAME}.csv', mode="w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(["timestamp", "message_size", "latency", "total_bytes"])
         csv_writer.writerows(results)

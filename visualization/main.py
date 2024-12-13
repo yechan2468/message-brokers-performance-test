@@ -46,7 +46,7 @@ def draw_graphs(producer_data, consumer_data, resource_usage_data):
     draw_latency_boxplot(consumer_data)
     draw_latency_histogram(consumer_data)
 
-    draw_lag_graph(consumer_data)
+    # draw_lag_graph(consumer_data)
 
     # draw_cpu_usage_graph(resource_usage_data)
     # draw_memory_usage_graph(resource_usage_data)

@@ -43,6 +43,7 @@ def read_producer_data(broker, start_time, end_time):
 
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
     result['throughput'] = result['message_size']
+    result['processing_time'] = result['processing_time']
 
     return result
 
@@ -55,7 +56,7 @@ def read_consumer_data(broker, start_time, end_time):
 
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
     result['throughput'] = result['message_size']
-    result['byterate'] = result['byte_size'].diff().replace(0, None).ffill()
+    result['processing_time'] = result['processing_time']
     result['latency'] = result['latency']
     result['lag'] = result['lag']
 

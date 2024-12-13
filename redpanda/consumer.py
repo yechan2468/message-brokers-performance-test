@@ -1,27 +1,24 @@
 import time
 import json
 import csv
+import os
 from confluent_kafka import Consumer
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 TOPIC = 'redpanda'
 BROKER = 'localhost:19092'
 GROUP_ID = 'consumer-group'
 
-STAT_INTERVAL_MS = 10 * 1000
+STAT_INTERVAL_MS = int(os.getenv('STAT_INTERVAL_MS'))
 
-RESULT_CSV_FILENAME = 'consumer_metrics.csv'
-
-consumer_stats = {"rx_bytes": [0], "consumer_lag": [{}]}
+RESULT_CSV_FILENAME = 'consumer_metrics'
 
 
 def stats_callback(stats_json_str):
-    global consumer_stats
-    stats = json.loads(stats_json_str)
-    consumer_stats["rx_bytes"].append(stats["rx_bytes"])
-    
-    partitions = stats.get("topics", {}).get(TOPIC, {}).get("partitions", {})
-    lag_info = {int(partition): info.get("consumer_lag", 0) for partition, info in partitions.items()}
-    consumer_stats["consumer_lag"].append(lag_info)
+    pass
 
 
 def initialize():
@@ -42,36 +39,33 @@ def initialize():
 
 def benchmark(consumer, results):
     while True:
-        message = consumer.poll(timeout=1.0)
-            
+        t1 = time.time()
+        message = consumer.poll(timeout=60.0)
+        t2 = time.time()
+
         if message is None:
             continue
         if message.error():
             print(f"Consumer error: {message.error()}")
             break
             
-        receive_time = time.time()
         payload_size = len(message)
-        latency = receive_time - message.timestamp()[1] / 1000.0  # in seconds
-            
-        rx_bytes = consumer_stats["rx_bytes"][-1]
-        lags = consumer_stats["consumer_lag"][-1]
-        lag = lags[0] if 0 in lags else 0
+        processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
+        latency = t2 - message.timestamp()[1] / 1000.0  # in seconds
 
-        results.append([receive_time, payload_size, rx_bytes, latency, lag])
+        results.append([t2, payload_size, processing_time, latency, -1])
     
     return results
 
 
 def write_results_to_csv(results):
-    with open(RESULT_CSV_FILENAME, mode='w', newline='') as csv_file:
+    with open(f'{RESULT_CSV_FILENAME}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(['timestamp', 'message_size', 'byte_size', 'latency', 'lag'])
+        csv_writer.writerow(['timestamp', 'message_size', 'processing_time', 'latency', 'lag'])
         csv_writer.writerows(results)
 
 
 def main():
-    global consumer_stats
     consumer = initialize()
     
     results = []

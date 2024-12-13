@@ -6,14 +6,13 @@ import threading
 QUEUE = 'rabbitmq'
 BROKER = 'localhost'
 
-RESULT_CSV_FILENAME = 'consumer_metrics.csv'
+RESULT_CSV_FILENAME = 'consumer_metrics'
 
 results = []
-rx_bytes = -1
 
 
 def consume_message(ch, method, properties, body):
-    global results, rx_bytes
+    global results
 
     receive_time = time.time()
     payload_size = len(body.decode('utf-8'))
@@ -22,7 +21,7 @@ def consume_message(ch, method, properties, body):
     queue_state = ch.queue_declare(queue=QUEUE, passive=True)
     lag = queue_state.method.message_count
     
-    results.append([receive_time, payload_size, rx_bytes, latency, lag])
+    results.append([receive_time, payload_size, 0, latency, lag])
 
 
 def initialize():
@@ -42,14 +41,14 @@ def benchmark(channel):
 
 
 def write_results_to_csv():
-    with open(RESULT_CSV_FILENAME, mode='w', newline='') as csv_file:
+    with open(f'{RESULT_CSV_FILENAME}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(['timestamp', 'message_size', 'byte_size', 'latency', 'lag'])
+        csv_writer.writerow(['timestamp', 'message_size', 'processing_time', 'latency', 'lag'])
         csv_writer.writerows(results)
 
 
 def main():
-    global results, rx_bytes
+    global results
     connection, channel = initialize()
     
     try:
