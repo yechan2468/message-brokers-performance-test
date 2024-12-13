@@ -75,7 +75,7 @@ def initialize():
 
 
 def generate_random_bytes(size_in_bytes):
-    return os.urandom(size_in_bytes)
+    return os.urandom(int(size_in_bytes))
 
 
 def generate_dataset():
@@ -83,7 +83,7 @@ def generate_dataset():
     for i in range(DATASET_SIZE):
         message = generate_random_bytes(MESSAGE_SIZE_KIB * 1024)
         dataset.append({
-            'message': message.encode('utf-8'),
+            'message': message,
             'message_size': MESSAGE_SIZE_KIB * 1024
         })
         if i % 500 == 0:

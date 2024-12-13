@@ -76,7 +76,7 @@ def get_producer_parameters():
 
 
 def generate_random_bytes(size_in_bytes):
-    return os.urandom(size_in_bytes)
+    return os.urandom(int(size_in_bytes))
 
 
 def generate_dataset():
