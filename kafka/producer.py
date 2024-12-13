@@ -29,16 +29,17 @@ MESSAGE_SIZE_KIB = 0
 VALID_PRODUCER_IDS = list(map(int, os.getenv('VALID_PRODUCER_IDS').split(',')))
 VALID_MESSAGE_SIZES_KIB = list(map(float, os.getenv('VALID_MESSAGE_SIZES_KIB').split(',')))
 
-producer_stats = {"tx_bytes": [0]}
+# producer_stats = {"tx_bytes": [0]}
 start_time = 0.
 end_time = 0.
 
 
 def stats_callback(stats_json_str):
-    global producer_stats
+    pass
+    # global producer_stats
 
-    stats = json.loads(stats_json_str)
-    producer_stats["tx_bytes"].append(stats["tx_bytes"])
+    # stats = json.loads(stats_json_str)
+    # producer_stats["tx_bytes"].append(stats["tx_bytes"])
 
 
 def report_delivery(err, msg):
@@ -102,13 +103,17 @@ def benchmark(producer, dataset, results):
     benchmark_duration = (BENCHMARK_DURATION_MINUTES + BENCHMARK_WARMUP_MINUTES) * 60
     while (time.time() - start_time) < benchmark_duration:
         data = dataset[counter % DATASET_SIZE]
+        
+        t1 = time.time()
         try:
             producer.produce(TOPIC, data['message'], callback=report_delivery)
         except Exception as e:
             pass
         producer.poll(0)
-            
-        results.append([time.time(), data['message_size'], producer_stats["tx_bytes"][-1]])
+        t2 = time.time()
+
+        processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
+        results.append([t2, data['message_size'], processing_time])
         counter += 1
         
     producer.flush()
@@ -125,12 +130,12 @@ def write_benchmark_time():
 def write_results_to_csv(results):
     with open(f'{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(['timestamp', 'message_size', 'byte_size'])
+        csv_writer.writerow(['timestamp', 'message_size', 'processing_time'])
         csv_writer.writerows(results)
 
 
 def main():
-    global producer_stats, end_time
+    global end_time
 
     get_producer_parameters()
     producer = initialize()

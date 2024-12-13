@@ -14,7 +14,7 @@ PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
 
 def read_benchmark_time(broker):
-    filename = os.path.join(os.path.curdir, f"../{broker}/{RESULT_BENCHMARK_TIME_FILENAME}")
+    filename = os.path.join(os.path.curdir, f"../{broker}/{RESULT_BENCHMARK_TIME_FILENAME}.txt")
     with open(filename, mode='r') as txt_file:
         start_time, end_time = map(float, txt_file.readline().split(','))
     
@@ -36,14 +36,13 @@ def _update_timestamp(df):
 
 
 def read_producer_data(broker, start_time, end_time):
-    filename = os.path.join(os.path.curdir, f"../{broker}/{PRODUCER_RESULT_CSV_FILENAME}")
+    filename = os.path.join(os.path.curdir, f"../{broker}/{PRODUCER_RESULT_CSV_FILENAME}.csv")
     result = pd.read_csv(filename)
     result = _filter_by_start_time_and_end_time(result, start_time, end_time)
     result = _update_timestamp(result)
 
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
     result['throughput'] = result['message_size']
-    result['byterate'] = result['byte_size'].diff().replace(0, None).ffill()
 
     return result
 

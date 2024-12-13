@@ -85,13 +85,15 @@ def benchmark(channel, dataset, results):
     counter = 0
     benchmark_duration = (BENCHMARK_DURATION_MINUTES + BENCHMARK_WARMUP_MINUTES) * 60
     while (time.time() - start_time) < benchmark_duration:
-        data = dataset[counter % DATASET_SIZE]
-        byte_size = len(data['message'])
+        data = dataset[counter % DATASET_SIZE]       
 
+        t1 = time.time()
         properties = pika.BasicProperties(timestamp=int(time.time()))
         channel.basic_publish(exchange='', routing_key=QUEUE, body=data['message'], properties=properties)
-            
-        results.append([time.time(), data['message_size'], byte_size])
+        t2 = time.time()
+        processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
+
+        results.append([t2, data['message_size'], processing_time])
         counter += 1
 
 
@@ -104,7 +106,7 @@ def write_benchmark_time():
 def write_results_to_csv(results):
     with open(f'{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(['timestamp', 'message_size', 'byte_size'])
+        csv_writer.writerow(['timestamp', 'message_size', 'processing_time'])
         csv_writer.writerows(results)
 
 

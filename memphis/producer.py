@@ -32,7 +32,6 @@ VALID_PRODUCER_IDS = list(map(int, os.getenv('VALID_PRODUCER_IDS').split(',')))
 VALID_MESSAGE_SIZES_KIB = list(map(float, os.getenv('VALID_MESSAGE_SIZES_KIB').split(',')))
 
 results = []
-total_bytes = 0
 start_time = 0.
 end_time = 0.
 
@@ -82,7 +81,7 @@ def generate_dataset():
 
 
 async def benchmark(producer, dataset):
-    global results, total_bytes, start_time
+    global results, start_time
     start_time = time.time()
     
     print(f'starting benchmark... start time={datetime.now()}')
@@ -94,13 +93,15 @@ async def benchmark(producer, dataset):
         headers = Headers()
         headers.add('time_sent', str(time.time()))
 
+        t1 = time.time()
         await producer.produce(
             message=bytearray(data['message']),
             headers=headers
         )
+        t2 = time.time()
+        processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
-        total_bytes += data['message_size']
-        results.append([time.time(), data['message_size'], total_bytes])
+        results.append([t2, data['message_size'], processing_time])
 
         counter += 1
 
@@ -114,7 +115,7 @@ def write_benchmark_time():
 def write_results_to_csv(results):
     with open(f'{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp", "message_size", "byte_size"])
+        csv_writer.writerow(["timestamp", "message_size", "processing_time"])
         csv_writer.writerows(results)
 
 
