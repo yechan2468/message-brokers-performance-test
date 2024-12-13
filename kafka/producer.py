@@ -20,8 +20,6 @@ BENCHMARK_WARMUP_MINUTES = int(os.getenv('BENCHMARK_WARMUP_MINUTES'))
 BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
 DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
-MESSAGE_MIN_SIZE = int(os.getenv('MESSAGE_MIN_SIZE'))
-MESSAGE_MAX_SIZE = int(os.getenv('MESSAGE_MAX_SIZE'))
 
 RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
@@ -76,19 +74,17 @@ def initialize():
     return producer
 
 
-def get_random_string():
-    length = random.randint(MESSAGE_MIN_SIZE, MESSAGE_MAX_SIZE)
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+def generate_random_bytes(size_in_bytes):
+    return os.urandom(size_in_bytes)
 
 
 def generate_dataset():
     dataset = []
     for i in range(DATASET_SIZE):
-        message = get_random_string()
-        message_size = len(message)
+        message = generate_random_bytes(MESSAGE_SIZE_KIB * 1024)
         dataset.append({
             'message': message.encode('utf-8'),
-            'message_size': message_size
+            'message_size': MESSAGE_SIZE_KIB * 1024
         })
         if i % 500 == 0:
             print(f'generating dataset... ({(i/DATASET_SIZE)*100}%, {i} / {DATASET_SIZE})')
