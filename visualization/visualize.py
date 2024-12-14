@@ -12,7 +12,7 @@ VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 
 
-def draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
+def _draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
     for broker in VISUALIZATION_BROKERS:
         prod_df = producer_data[broker]
         cons_df = consumer_data[broker]
@@ -100,7 +100,7 @@ def draw_consumer_throughput_byterate_graph(consumer_data):
         save_plot(fig, f"{broker}_consumer_throughput_byterate_boxplot.png")
 
 
-def draw_producer_throughput_byterate_boxplots(producer_data):
+def _draw_producer_throughput_byterate_boxplots(producer_data):
     throughput_data = []
     byterate_data = []
 
@@ -150,7 +150,7 @@ def draw_producer_throughput_byterate_boxplots(producer_data):
         save_plot(fig, f"{title.replace(' ', '_').lower()}.png")
 
 
-def draw_consumer_throughput_byterate_boxplots(consumer_data):
+def _draw_consumer_throughput_byterate_boxplots(consumer_data):
     throughput_data = []
     byterate_data = []
 
