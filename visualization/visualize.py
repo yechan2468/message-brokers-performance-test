@@ -21,25 +21,27 @@ def draw_producer_throughput_graph(producer_data):
         number_of_messages = len(producer_data)
         total_message_size = message_size * number_of_messages
 
-        total_time = prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]
+        total_time = (prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]).total_seconds()
 
         throughput = total_message_size / total_time
         throughputs.append(throughput)
     
     x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
 
-    plt.figure(figsize=(8, 5))
-    bars = plt.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
 
     for bar in bars:
         height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width() / 2, height, f"{int(height)}", 
+        ax.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.7f}", 
                 ha='center', va='bottom', fontsize=10, color='black')
 
-    plt.title(f"Producer Throughput (message size={message_size} Byte)", fontsize=14)
-    plt.ylabel("Throughput", fontsize=12)
-    plt.xlabel("Brokers", fontsize=12)
-    plt.ylim(0, max(throughputs) + 5)
+    ax.set_title(f"Producer Throughput (message size={message_size} Byte)", fontsize=14)
+    ax.set_ylabel("Throughput", fontsize=12)
+    ax.set_xlabel("Brokers", fontsize=12)
+    ax.set_ylim(0, max(throughputs) + 5)
+
+    save_plot(fig,  f"producer_throughput_{message_size}KiB_graph.png")
 
 
 def draw_consumer_throughput_graph(consumer_data):
@@ -51,25 +53,27 @@ def draw_consumer_throughput_graph(consumer_data):
         number_of_messages = len(consumer_data)
         total_message_size = message_size * number_of_messages
 
-        total_time = prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]
+        total_time = (prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]).total_seconds()
 
         throughput = total_message_size / total_time
         throughputs.append(throughput)
     
     x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
 
-    plt.figure(figsize=(8, 5))
-    bars = plt.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
 
     for bar in bars:
         height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width() / 2, height, f"{int(height)}", 
+        ax.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.7f}", 
                 ha='center', va='bottom', fontsize=10, color='black')
 
-    plt.title(f"Consumer Throughput (message size={message_size} Byte)", fontsize=14)
-    plt.ylabel("Throughput", fontsize=12)
-    plt.xlabel("Brokers", fontsize=12)
-    plt.ylim(0, max(throughputs) + 5)
+    ax.set_title(f"Consumer Throughput (message size={message_size} Byte)", fontsize=14)
+    ax.set_ylabel("Throughput", fontsize=12)
+    ax.set_xlabel("Brokers", fontsize=12)
+    ax.set_ylim(0, max(throughputs) + 5)
+
+    save_plot(fig, f"consumer_throughput_{message_size}KiB_graph.png")
 
 
 def _draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):

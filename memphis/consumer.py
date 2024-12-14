@@ -51,7 +51,7 @@ async def benchmark(consumer):
 def write_results_to_csv(results):
     with open(f'{RESULT_CSV_FILENAME}.csv', mode="w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp", "message_size", "latency", "total_bytes"])
+        csv_writer.writerow(["timestamp", "message_size", "processing_time", "latency", "lag"])
         csv_writer.writerows(results)
 
 
