@@ -12,7 +12,7 @@ TOPIC = 'kafka'
 BROKER = 'localhost:9092'
 GROUP_ID = 'consumer-group'
 
-STAT_INTERVAL_MS = int(os.getenv('STAT_INTERVAL_MS'))
+KAFKA_STAT_INTERVAL_MS = int(os.getenv('KAFKA_STAT_INTERVAL_MS'))
 
 RESULT_CSV_FILENAME = 'consumer_metrics'
 
@@ -27,7 +27,7 @@ def initialize():
         'group.id': GROUP_ID,
         'auto.offset.reset': 'earliest',
         'stats_cb': stats_callback,
-        'statistics.interval.ms': STAT_INTERVAL_MS
+        'statistics.interval.ms': KAFKA_STAT_INTERVAL_MS
     })
     consumer.subscribe([TOPIC])
     return consumer

@@ -35,7 +35,7 @@ async def benchmark(consumer):
         t2 = time.time()
 
         for message in messages:
-            message_size = len(message.get_data().decode('utf-8'))
+            message_size = len(message.get_data())
 
             headers = message.get_headers()
             time_sent = float(headers['time_sent'])

@@ -15,7 +15,7 @@ def consume_message(ch, method, properties, body):
     global results
 
     receive_time = time.time()
-    payload_size = len(body.decode('utf-8'))
+    payload_size = len(body)
     latency = receive_time - properties.timestamp
     
     queue_state = ch.queue_declare(queue=QUEUE, passive=True)
