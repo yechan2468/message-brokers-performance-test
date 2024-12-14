@@ -12,6 +12,66 @@ VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 
 
+def draw_producer_throughput_graph(producer_data):
+    message_size = 0
+    throughputs = []
+    for broker in VISUALIZATION_BROKERS:
+        prod_df = producer_data[broker]
+        message_size = prod_df['message_size'].iloc[0]
+        number_of_messages = len(producer_data)
+        total_message_size = message_size * number_of_messages
+
+        total_time = prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]
+
+        throughput = total_message_size / total_time
+        throughputs.append(throughput)
+    
+    x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
+
+    plt.figure(figsize=(8, 5))
+    bars = plt.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
+
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2, height, f"{int(height)}", 
+                ha='center', va='bottom', fontsize=10, color='black')
+
+    plt.title(f"Producer Throughput (message size={message_size} Byte)", fontsize=14)
+    plt.ylabel("Throughput", fontsize=12)
+    plt.xlabel("Brokers", fontsize=12)
+    plt.ylim(0, max(throughputs) + 5)
+
+
+def draw_consumer_throughput_graph(consumer_data):
+    message_size = 0
+    throughputs = []
+    for broker in VISUALIZATION_BROKERS:
+        prod_df = consumer_data[broker]
+        message_size = prod_df['message_size'].iloc[0]
+        number_of_messages = len(consumer_data)
+        total_message_size = message_size * number_of_messages
+
+        total_time = prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]
+
+        throughput = total_message_size / total_time
+        throughputs.append(throughput)
+    
+    x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
+
+    plt.figure(figsize=(8, 5))
+    bars = plt.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
+
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2, height, f"{int(height)}", 
+                ha='center', va='bottom', fontsize=10, color='black')
+
+    plt.title(f"Consumer Throughput (message size={message_size} Byte)", fontsize=14)
+    plt.ylabel("Throughput", fontsize=12)
+    plt.xlabel("Brokers", fontsize=12)
+    plt.ylim(0, max(throughputs) + 5)
+
+
 def _draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
     for broker in VISUALIZATION_BROKERS:
         prod_df = producer_data[broker]

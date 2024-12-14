@@ -39,9 +39,8 @@ def read_data():
 
 
 def draw_graphs(producer_data, consumer_data, resource_usage_data):
-    _draw_broker_throughput_byterate_boxplots(producer_data, consumer_data)
-    _draw_producer_throughput_byterate_boxplots(producer_data)
-    _draw_consumer_throughput_byterate_boxplots(consumer_data)
+    draw_producer_throughput_graph(producer_data)
+    draw_consumer_throughput_graph(consumer_data)
 
     draw_latency_boxplot(consumer_data)
     draw_latency_histogram(consumer_data)
