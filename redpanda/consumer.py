@@ -2,6 +2,7 @@ import time
 import json
 import csv
 import os
+import random
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
@@ -54,6 +55,7 @@ def benchmark(consumer, results):
         latency = t2 - message.timestamp()[1] / 1000.0  # in seconds
 
         results.append([t2, payload_size, processing_time, latency, -1])
+        time.sleep(random.random() * 0.000001)
     
     return results
 

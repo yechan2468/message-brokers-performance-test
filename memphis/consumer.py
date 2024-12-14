@@ -2,6 +2,7 @@ import time
 import csv
 from memphis import Memphis
 import asyncio
+import random
 import sys
 
 
@@ -46,6 +47,7 @@ async def benchmark(consumer):
             results.append([t2, message_size, processing_time, latency, -1])
 
             await message.ack()
+            time.sleep(random.random() * 0.001)
 
 
 def write_results_to_csv(results):

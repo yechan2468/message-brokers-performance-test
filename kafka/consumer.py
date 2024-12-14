@@ -2,6 +2,7 @@ import time
 import json
 import csv
 import os
+import random
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
@@ -50,6 +51,7 @@ def benchmark(consumer, results):
         processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
         results.append([t2, payload_size, processing_time, latency, -1])
+        time.sleep(random.random() * 0.001)
     
     return results
 

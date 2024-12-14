@@ -1,6 +1,7 @@
 import pika
 import time
 import csv
+import random
 import threading
 
 QUEUE = 'rabbitmq'
@@ -22,6 +23,7 @@ def consume_message(ch, method, properties, body):
     lag = queue_state.method.message_count
     
     results.append([receive_time, payload_size, 0, latency, lag])
+    time.sleep(random.random() * 0.001)
 
 
 def initialize():

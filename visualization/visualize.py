@@ -18,12 +18,13 @@ def draw_producer_throughput_graph(producer_data):
     for broker in VISUALIZATION_BROKERS:
         prod_df = producer_data[broker]
         message_size = prod_df['message_size'].iloc[0]
-        number_of_messages = len(producer_data)
+        number_of_messages = len(producer_data[broker])
         total_message_size = message_size * number_of_messages
 
         total_time = (prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]).total_seconds()
 
         throughput = total_message_size / total_time
+        print(f'msg_size={message_size}, #msgs={number_of_messages}, total_time={total_time}, thpt={throughput}')
         throughputs.append(throughput)
     
     x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]

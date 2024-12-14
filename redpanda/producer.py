@@ -85,7 +85,7 @@ def generate_dataset():
     for i in range(DATASET_SIZE):
         message = generate_random_bytes(MESSAGE_SIZE_KIB * 1024)
         dataset.append({
-            'message': message.encode('utf-8'),
+            'message': message,
             'message_size': MESSAGE_SIZE_KIB * 1024
         })
         if i % 500 == 0:
@@ -116,6 +116,7 @@ def benchmark(producer, dataset, results):
         processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
         results.append([t2, data['message_size'], processing_time])
         counter += 1
+        time.sleep(random.random() * 0.001)
         
     producer.flush()
 

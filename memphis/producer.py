@@ -104,6 +104,7 @@ async def benchmark(producer, dataset):
         results.append([t2, data['message_size'], processing_time])
 
         counter += 1
+        time.sleep(random.random() * 0.001)
 
 
 def write_benchmark_time():
