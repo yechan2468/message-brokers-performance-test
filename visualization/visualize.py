@@ -24,7 +24,7 @@ def draw_producer_throughput_graph(producer_data):
         total_time = (prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]).total_seconds()
 
         throughput = total_message_size / total_time
-        print(f'msg_size={message_size}, #msgs={number_of_messages}, total_time={total_time}, thpt={throughput}')
+        print(f'msg_size={message_size}, #msgs={number_of_messages}, total_time={total_time}, prod_thpt={throughput}')
         throughputs.append(throughput)
     
     x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
@@ -57,6 +57,7 @@ def draw_consumer_throughput_graph(consumer_data):
         total_time = (prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]).total_seconds()
 
         throughput = total_message_size / total_time
+        print(f'msg_size={message_size}, #msgs={number_of_messages}, total_time={total_time}, cons_thpt={throughput}')
         throughputs.append(throughput)
     
     x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
