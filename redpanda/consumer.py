@@ -52,10 +52,10 @@ def benchmark(consumer, results):
             
         payload_size = len(message)
         processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
-        latency = t2 - message.timestamp()[1] / 1000.0  # in seconds
+        latency = (t2 - message.timestamp()[1]) / 1000.0  # in seconds
 
         results.append([t2, payload_size, processing_time, latency, -1])
-        time.sleep(random.random() * 0.000001)
+        time.sleep(random.random() * 0.001)
     
     return results
 
