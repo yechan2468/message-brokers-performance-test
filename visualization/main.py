@@ -31,8 +31,8 @@ def read_data():
         consumer_data[broker] = read_consumer_data(broker, start_time, end_time)
 
         resource_usage_data[broker] = {}
-        resource_usage_data[broker]['cpu'] = read_cpu_usage_data(broker)
-        resource_usage_data[broker]['memory'] = read_memory_usage_data(broker)
+        # resource_usage_data[broker]['cpu'] = read_cpu_usage_data(broker)
+        # resource_usage_data[broker]['memory'] = read_memory_usage_data(broker)
         print('done.')
 
     return producer_data, consumer_data, resource_usage_data
