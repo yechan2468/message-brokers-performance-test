@@ -1,27 +1,114 @@
-version: '3'
- 
+# Kafka
+
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.7.1
-    hostname: zookeeper
-    container_name: zookeeper
-    environment:
-      ZOOKEEPER_SERVER_ID: 1 # 주키퍼를 식별하는 아이디로 유일한 값
-      ZOOKEEPER_CLIENT_PORT: 2181 # 주키퍼 포트, 기본 포트로 2181 사용
-      ZOOKEEPER_TICK_TIME: 2000 # 클러스터를 구성할 때 동기화를 위한 기본 틱 타임
- 
   broker:
-    image: confluentinc/cp-kafka:7.7.1
-    container_name: broker
+    image: confluentinc/cp-kafka:${DOCKER_KAFKA_IMAGE_TAG}
+    container_name: ${DOCKER_KAFKA_BROKER_CONTAINER_NAME}
     ports:
-      - "9092:9092"
-    depends_on:
-      - zookeeper
+      - ${KAFKA_BROKER_PORT}:${KAFKA_BROKER_PORT}
     environment:
-      KAFKA_BROKER_ID: 1 # 카프카의 브로커 아이디로 유일한 값
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181' # 주키퍼에 연결하기 위한 대상 지정 [서비스이름:컨테이너내부포트]
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT # 보안을 위한 프로토콜 매핑. PLAINTEXT는 암호화하지 않은 일반 평문
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://broker:29092 # 외부 클라이언트에 알려주는 리스너 주소
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # 토픽 복제에 대한 설정 값
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1 # 트랜잭션 최소 ISR(InSyncReplicas 설정) 수
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # 트랜잭션 상태에서 복제 수
+      KAFKA_NODE_ID: 1 # 노드를 식별하는 유일한 ID
+      KAFKA_PROCESS_ROLES: 'broker,controller' # 단일 노드가 브로커와 컨트롤러 역할을 모두 수행
+      KAFKA_LISTENERS: PLAINTEXT://:${KAFKA_BROKER_PORT},CONTROLLER://:9093 # 리스너 설정: 클라이언트용(9092), 내부 컨트롤러용(9093)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_BROKER_HOSTNAME}:${KAFKA_BROKER_PORT} # 외부 클라이언트에게 광고되는 주소
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker:9093' # 컨트롤러 쿼럼 구성원 목록 (노드ID@호스트:포트)
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      
+      KAFKA_CFG_LOG_DIRS: '/tmp/kraft-storage' # KRaft 메타데이터 및 로그 저장 디렉토리
+
+      CLUSTER_ID: P89R380O22R97Q0Q932E
+      KAFKA_CFG_CLUSTER_ID: P89R380O22R97Q0Q932E
+
+      KAFKA_NUM_PARTITIONS: ${PARTITION_COUNT} # 파티션 수
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
+      
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # 오프셋 토픽 복제 인자
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1 # 트랜잭션 최소 ISR 수
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # 트랜잭션 상태 로그 복제 인자
+
+    volumes:
+      - kafka-data:/tmp/kraft-storage
+    deploy:
+      resources:
+        limits:
+          cpus: ${BROKER_COMMON_CPU_LIMIT}
+          memory: ${BROKER_COMMON_MEMORY_LIMIT}
+    healthcheck:
+      # 내부 포트가 연결 가능한지 확인
+      test: ["CMD-SHELL", "nc -z localhost ${KAFKA_BROKER_PORT}"] 
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  topic-creator:
+    image: confluentinc/cp-kafka:${DOCKER_KAFKA_IMAGE_TAG}
+    depends_on:
+      broker:
+        condition: service_healthy 
+    env_file:
+      - ../.env
+      - ./.env
+    environment:
+      KAFKA_BROKER_HOSTNAME: ${KAFKA_BROKER_HOSTNAME}
+      KAFKA_BROKER_PORT: ${KAFKA_BROKER_PORT}
+      PARTITION_COUNT: ${PARTITION_COUNT}
+    command: >
+      bash -c '
+        for i in `seq 1 30`; do
+          kafka-topics --bootstrap-server $$KAFKA_BROKER_HOSTNAME:$$KAFKA_BROKER_PORT \
+                       --create \
+                       --topic $$KAFKA_TOPIC_NAME \
+                       --partitions $$PARTITION_COUNT \
+                       --replication-factor 1 \
+                       --if-not-exists
+          if [ $$? -eq 0 ]; then
+            echo "Topic $$KAFKA_TOPIC_NAME created successfully."
+            exit 0
+          fi
+          echo "Topic creation failed, waiting 2 seconds and retrying..."
+          sleep 2
+        done
+        echo "Failed to create topic after 30 attempts."
+        exit 1
+      '
+
+  consumer:
+    build: .
+    command: bash -c "export CONSUMER_ID=$(hostname | sed 's/.*-//'); exec python consumer.py"
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./consumer.py:/app/consumer.py
+      - ./results/consumer:/app/results
+    depends_on:
+      broker:
+        condition: service_healthy
+      topic-creator:
+        condition: service_completed_successfully
+
+  producer:
+    build: .
+    command: bash -c "export PRODUCER_ID=$(hostname | sed 's/.*-//'); exec python producer.py"
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./producer.py:/app/producer.py
+      - ./results/producer:/app/results
+    depends_on:
+      consumer:
+        condition: service_started
+      broker:
+        condition: service_healthy
+      topic-creator:
+        condition: service_completed_successfully
+
+volumes:
+  kafka-data:
