@@ -1,46 +1,32 @@
 import random
-import string
 import time
 from datetime import datetime
 import csv
-import json
 import os
-import sys
+import glob
 from confluent_kafka import Producer
 from dotenv import load_dotenv
 
-
+load_dotenv('../.env')
 load_dotenv()
 
-TOPIC = 'redpanda'
-BROKER = 'localhost:19092'
-KAFKA_STAT_INTERVAL_MS = os.getenv('KAFKA_STAT_INTERVAL_MS')
 
 BENCHMARK_WARMUP_MINUTES = float(os.getenv('BENCHMARK_WARMUP_MINUTES'))
-BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
+BENCHMARK_DURATION_MINUTES = float(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
 DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
 
 RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
-PRODUCER_ID = 0
-MESSAGE_SIZE_KIB = 0
-VALID_PRODUCER_IDS = list(map(int, os.getenv('VALID_PRODUCER_IDS').split(',')))
-VALID_MESSAGE_SIZES_KIB = list(map(float, os.getenv('VALID_MESSAGE_SIZES_KIB').split(',')))
+PRODUCER_ID = os.getenv('PRODUCER_ID')
 
-
-# producer_stats = {"tx_bytes": [0]}
 start_time = 0.
 end_time = 0.
 
 
 def stats_callback(stats_json_str):
     pass
-    # global producer_stats
-
-    # stats = json.loads(stats_json_str)
-    # producer_stats["tx_bytes"].append(stats["tx_bytes"])
 
 
 def report_delivery(err, msg):
@@ -50,30 +36,12 @@ def report_delivery(err, msg):
 
 def initialize():
     producer = Producer({
-        'bootstrap.servers': BROKER,
+        'bootstrap.servers': f'{os.getenv("KAFKA_BROKER_HOSTNAME")}:{os.getenv("KAFKA_BROKER_PORT")}',
         'stats_cb': stats_callback,
-        'statistics.interval.ms': KAFKA_STAT_INTERVAL_MS
+        'statistics.interval.ms': os.getenv('KAFKA_STAT_INTERVAL_MS')
     })
     
     return producer
-
-
-def get_producer_parameters():
-    global PRODUCER_ID, MESSAGE_SIZE_KIB
-
-    if len(sys.argv) < 3:
-        print('python producer.py <producer id> <message size in KiB>')
-        exit()
-
-    PRODUCER_ID = int(sys.argv[1])
-    if PRODUCER_ID not in VALID_PRODUCER_IDS:
-        print(f'Number of producers should be one of {VALID_PRODUCER_IDS}, but received {PRODUCER_ID}')
-        exit()
-
-    MESSAGE_SIZE_KIB = float(sys.argv[2])
-    if MESSAGE_SIZE_KIB not in VALID_MESSAGE_SIZES_KIB:
-        print(f'Message size should be one of {VALID_MESSAGE_SIZES_KIB}, but received {MESSAGE_SIZE_KIB}')
-        exit()
 
 
 def generate_random_bytes(size_in_bytes):
@@ -83,6 +51,7 @@ def generate_random_bytes(size_in_bytes):
 def generate_dataset():
     dataset = []
     for i in range(DATASET_SIZE):
+        MESSAGE_SIZE_KIB = int(os.getenv('MESSAGE_SIZE_KIB'))
         message = generate_random_bytes(MESSAGE_SIZE_KIB * 1024)
         dataset.append({
             'message': message,
@@ -99,15 +68,16 @@ def benchmark(producer, dataset, results):
     global start_time
     start_time = time.time()
     
-    print(f'starting benchmark... start time={datetime.now()}')
     counter = 0
     benchmark_duration = (BENCHMARK_DURATION_MINUTES + BENCHMARK_WARMUP_MINUTES) * 60
+    topic_name = os.getenv('KAFKA_TOPIC_NAME')
+
     while (time.time() - start_time) < benchmark_duration:
         data = dataset[counter % DATASET_SIZE]
         
         t1 = time.time()
         try:
-            producer.produce(TOPIC, data['message'], callback=report_delivery)
+            producer.produce(topic_name, data['message'], callback=report_delivery)
         except Exception as e:
             pass
         producer.poll(0)
@@ -121,6 +91,24 @@ def benchmark(producer, dataset, results):
     producer.flush()
 
     return results
+
+
+def cleanup_results():
+    result_dir = os.path.dirname(PRODUCER_RESULT_CSV_FILENAME)
+    
+    csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
+    for f in csv_files:
+        try:
+            os.remove(f)
+        except OSError as e:
+            print(f"Error removing CSV file {f}: {e}")
+            
+    txt_files = glob.glob(os.path.join(result_dir, '*.txt'))
+    for f in txt_files:
+        try:
+            os.remove(f)
+        except OSError as e:
+            print(f"Error removing TXT file {f}: {e}")
 
 
 def write_benchmark_time():
@@ -138,24 +126,27 @@ def write_results_to_csv(results):
 
 def main():
     global end_time
+    print(f'init time={datetime.now()}')
 
-    get_producer_parameters()
+    cleanup_results()
     producer = initialize()
     dataset = generate_dataset()
     
     results = []
     try:
+        print(f'starting benchmark... start time={datetime.now()} producer id: {os.getenv("PRODUCER_ID")} ')
         benchmark(producer, dataset, results)
     except KeyboardInterrupt:
         pass
     finally:
+        producer.flush()
         end_time = time.time()
 
         print(f'successfully performed benchmark. end time={datetime.now()}')
         print('writing results...')
         write_benchmark_time()
         write_results_to_csv(results)
-        print('done.')
+        print(f'done. end time={datetime.now()}')
 
 
 if __name__ == "__main__":

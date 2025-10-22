@@ -1,49 +1,68 @@
+# redpanda
+
 name: redpanda
 networks:
-  redpanda_network:
+  redpanda-network:
     driver: bridge
 volumes:
-  redpanda-0: null
+  redpanda-volume: null
 services:
-  redpanda-0:
+  broker:
+    env_file:
+      - ../.env
+      - ./.env
+    environment:
+      - KAFKA_BROKER_HOSTNAME=${KAFKA_BROKER_HOSTNAME}
+      - KAFKA_BROKER_PORT=${KAFKA_BROKER_PORT}
     command:
       - redpanda
       - start
-      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --kafka-addr internal://0.0.0.0:${KAFKA_BROKER_PORT},external://0.0.0.0:19092
       # Address the broker advertises to clients that connect to the Kafka API.
       # Use the internal addresses to connect to the Redpanda brokers'
       # from inside the same Docker network.
       # Use the external addresses to connect to the Redpanda brokers'
       # from outside the Docker network.
-      - --advertise-kafka-addr internal://redpanda-0:9092,external://localhost:19092
+      - --advertise-kafka-addr internal://${KAFKA_BROKER_HOSTNAME}:${KAFKA_BROKER_PORT},external://localhost:19092
       - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
       # Address the broker advertises to clients that connect to the HTTP Proxy.
-      - --advertise-pandaproxy-addr internal://redpanda-0:8082,external://localhost:18082
+      - --advertise-pandaproxy-addr internal://${KAFKA_BROKER_HOSTNAME}:8082,external://localhost:18082
       - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
       # Redpanda brokers use the RPC API to communicate with each other internally.
-      - --rpc-addr redpanda-0:33145
-      - --advertise-rpc-addr redpanda-0:33145
+      - --rpc-addr ${KAFKA_BROKER_HOSTNAME}:33145
+      - --advertise-rpc-addr ${KAFKA_BROKER_HOSTNAME}:33145
       # Mode dev-container uses well-known configuration properties for development in containers.
       - --mode dev-container
       # Tells Seastar (the framework Redpanda uses under the hood) to use 1 core on the system.
-      - --smp 1
+      - --smp ${BROKER_COMMON_CPU_LIMIT}
       - --default-log-level=info
-    image: docker.redpanda.com/redpandadata/redpanda:v24.2.10
-    container_name: redpanda-0
+    image: docker.redpanda.com/redpandadata/redpanda:${DOCKER_REDPANDA_IMAGE_TAG}
+    container_name: ${DOCKER_REDPANDA_BROKER_CONTAINER_NAME}
     volumes:
-      - redpanda-0:/var/lib/redpanda/data
+      - redpanda-volume:/var/lib/redpanda/data
     networks:
-      - redpanda_network
+      - redpanda-network
     ports:
       - 18081:18081
       - 18082:18082
       - 19092:19092
       - 19644:9644
+    deploy:
+      resources:
+        limits:
+          cpus: ${BROKER_COMMON_CPU_LIMIT}
+          memory: ${BROKER_COMMON_MEMORY_LIMIT}
+    healthcheck:
+      test: ["CMD", "/usr/bin/rpk", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
   # console:
   #   container_name: redpanda-console
   #   image: docker.redpanda.com/redpandadata/console:v2.7.2
   #   networks:
-  #     - redpanda_network
+  #     - redpanda-network
   #   entrypoint: /bin/sh
   #   command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml; /app/console'
   #   environment:
@@ -62,3 +81,71 @@ services:
   #     - 8080:8080
   #   depends_on:
   #     - redpanda-0
+  topic-creator:
+    image: confluentinc/cp-kafka:${DOCKER_KAFKA_IMAGE_TAG}
+    depends_on:
+      broker:
+        condition: service_healthy 
+    env_file:
+      - ../.env
+      - ./.env
+    environment:
+      KAFKA_BROKER_HOSTNAME: ${KAFKA_BROKER_HOSTNAME}
+      KAFKA_BROKER_PORT: ${KAFKA_BROKER_PORT}
+      PARTITION_COUNT: ${PARTITION_COUNT}
+    command: >
+      bash -c '
+        for i in `seq 1 30`; do
+          kafka-topics --bootstrap-server $$KAFKA_BROKER_HOSTNAME:$$KAFKA_BROKER_PORT \
+                       --create \
+                       --topic $$KAFKA_TOPIC_NAME \
+                       --partitions $$PARTITION_COUNT \
+                       --replication-factor 1 \
+                       --if-not-exists
+          if [ $$? -eq 0 ]; then
+            echo "Topic $$KAFKA_TOPIC_NAME created successfully."
+            exit 0
+          fi
+          echo "Topic creation failed, waiting 2 seconds and retrying..."
+          sleep 2
+        done
+        echo "Failed to create topic after 30 attempts."
+        exit 1
+      '
+    networks:
+      - redpanda-network
+  consumer:
+    build: .
+    command: bash -c "export CONSUMER_ID=$(hostname | sed 's/.*-//'); exec python consumer.py"
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./consumer.py:/app/consumer.py
+      - ./results/consumer:/app/results
+    depends_on:
+      broker:
+        condition: service_healthy
+      topic-creator:
+        condition: service_completed_successfully
+    networks:
+      - redpanda-network
+
+  producer:
+    build: .
+    command: bash -c "export PRODUCER_ID=$(hostname | sed 's/.*-//'); exec python producer.py"
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./producer.py:/app/producer.py
+      - ./results/producer:/app/results
+    depends_on:
+      consumer:
+        condition: service_started
+      broker:
+        condition: service_healthy
+      topic-creator:
+        condition: service_completed_successfully
+    networks:
+      - redpanda-network

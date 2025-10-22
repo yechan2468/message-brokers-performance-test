@@ -1,21 +1,15 @@
 import time
-import json
 import csv
 import os
 import random
+import glob
+from datetime import datetime
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
 
+load_dotenv('../.env')
 load_dotenv()
-
-TOPIC = 'redpanda'
-BROKER = 'localhost:19092'
-GROUP_ID = 'consumer-group'
-
-KAFKA_STAT_INTERVAL_MS = int(os.getenv('KAFKA_STAT_INTERVAL_MS'))
-
-RESULT_CSV_FILENAME = 'consumer_metrics'
 
 
 def stats_callback(stats_json_str):
@@ -24,22 +18,24 @@ def stats_callback(stats_json_str):
 
 def initialize():
     consumer = Consumer({
-        'bootstrap.servers': BROKER,
-        'group.id': GROUP_ID,
+        'bootstrap.servers': f'{os.getenv("KAFKA_BROKER_HOSTNAME")}:{os.getenv("KAFKA_BROKER_PORT")}',
+        'group.id': os.getenv('KAFKA_CONSUMER_GROUP_ID'),
         'auto.offset.reset': 'earliest',
         'stats_cb': stats_callback,
-        'statistics.interval.ms': KAFKA_STAT_INTERVAL_MS,
-        # 'security.protocol': "SASL_PLAINTEXT",
-        # 'sasl.mechanism': "SCRAM-SHA-256",
-        # 'sasl.username': "username",
-        # 'sasl.password': "password",
+        'statistics.interval.ms': int(os.getenv('KAFKA_STAT_INTERVAL_MS'))
     })
-    consumer.subscribe([TOPIC])
+    consumer.subscribe([os.getenv('KAFKA_TOPIC_NAME')])
     return consumer
 
 
-def benchmark(consumer, results):
-    while True:
+def benchmark(consumer, results):    
+    start_time = time.time()
+    total_duration_seconds = (float(os.getenv('BENCHMARK_WARMUP_MINUTES')) \
+                              + float(os.getenv('BENCHMARK_DURATION_MINUTES')) \
+                              + float(os.getenv('BENCHMARK_CONSUMER_AFTER_BENCHMARK_WAIT_MINUTES'))) * 60.0
+    end_time_limit = start_time + total_duration_seconds
+
+    while time.time() < end_time_limit:
         t1 = time.time()
         message = consumer.poll(timeout=60.0)
         t2 = time.time()
@@ -51,8 +47,8 @@ def benchmark(consumer, results):
             break
             
         payload_size = len(message)
-        processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
         latency = t2 - message.timestamp()[1] / 1000.0  # in seconds
+        processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
         results.append([t2, payload_size, processing_time, latency, -1])
         time.sleep(random.random() * 0.001)
@@ -60,18 +56,35 @@ def benchmark(consumer, results):
     return results
 
 
+def cleanup_results():
+    result_dir = os.path.dirname(os.getenv('CONSUMER_RESULT_CSV_FILENAME'))
+    
+    csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
+    for f in csv_files:
+        try:
+            os.remove(f)
+        except OSError as e:
+            print(f"Error removing CSV file {f}: {e}")
+
+
 def write_results_to_csv(results):
-    with open(f'{RESULT_CSV_FILENAME}.csv', mode='w', newline='') as csv_file:
+    filename = f'{os.getenv("CONSUMER_RESULT_CSV_FILENAME")}-{os.getenv("CONSUMER_ID")}.csv'
+    with open(filename, mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'processing_time', 'latency', 'lag'])
         csv_writer.writerows(results)
 
 
 def main():
+    print(f'init time={datetime.now()}')
+
+    cleanup_results()
+
     consumer = initialize()
     
     results = []
     try:
+        print(f"starting benchmark... start time={datetime.now()} consumer id={os.getenv('CONSUMER_ID')}")
         benchmark(consumer, results)
     except KeyboardInterrupt:
         pass
@@ -79,7 +92,7 @@ def main():
         consumer.close()
         print('writing results to csv...')
         write_results_to_csv(results)
-        print('done.')   
+        print(f'done. end time={datetime.now()}')   
         
 
 if __name__ == "__main__":
