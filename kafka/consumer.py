@@ -32,7 +32,7 @@ def benchmark(consumer, results):
     start_time = time.time()
     total_duration_seconds = (float(os.getenv('BENCHMARK_WARMUP_MINUTES')) \
                               + float(os.getenv('BENCHMARK_DURATION_MINUTES')) \
-                              + float(os.getenv('KAFKA_CONSUMER_WAIT_AFTER_BENCHMARK_MINUTES'))) * 60.0
+                              + float(os.getenv('BENCHMARK_CONSUMER_AFTER_BENCHMARK_WAIT_MINUTES'))) * 60.0
     end_time_limit = start_time + total_duration_seconds
 
     while time.time() < end_time_limit:

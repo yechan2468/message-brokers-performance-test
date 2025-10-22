@@ -1,61 +1,49 @@
 import pika
 import random
-import string
 import time
 from datetime import datetime
 import csv
 import os
-import sys
+import glob
 from dotenv import load_dotenv
 
 
+load_dotenv('../.env')
 load_dotenv()
 
 
-QUEUE = 'rabbitmq'
-BROKER = 'localhost'
+QUEUE_NAME = 'rabbitmq'
+
+RABBITMQ_HOST = os.getenv('RABBITMQ_HOST')
+RABBITMQ_BROKER_PORT = int(os.getenv('RABBITMQ_BROKER_PORT'))
+RABBITMQ_QUEUE_PREFIX = os.getenv('RABBITMQ_QUEUE_PREFIX')
+PARTITION_COUNT = int(os.getenv('PARTITION_COUNT')) 
 
 BENCHMARK_WARMUP_MINUTES = float(os.getenv('BENCHMARK_WARMUP_MINUTES'))
-BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
+BENCHMARK_DURATION_MINUTES = float(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
 DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
 
 RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
+PRODUCER_ID = os.getenv('PRODUCER_ID')
 
-PRODUCER_ID = 0
-MESSAGE_SIZE_KIB = 0
-VALID_PRODUCER_IDS = list(map(int, os.getenv('VALID_PRODUCER_IDS').split(',')))
-VALID_MESSAGE_SIZES_KIB = list(map(float, os.getenv('VALID_MESSAGE_SIZES_KIB').split(',')))
+MESSAGE_SIZE_KIB = int(os.getenv('MESSAGE_SIZE_KIB'))
 
+RABBITMQ_EXCHANGE_NAME = f'{RABBITMQ_QUEUE_PREFIX}-exchange'
 
 start_time = 0.
 end_time = 0.
 
 
 def initialize():
-    connection = pika.BlockingConnection(pika.ConnectionParameters(BROKER))
+    connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host=RABBITMQ_HOST,
+        port=RABBITMQ_BROKER_PORT
+    ))
     channel = connection.channel()
-    channel.queue_declare(queue=QUEUE)
+    # channel.queue_declare(queue=QUEUE_NAME)
     return connection,channel
-
-
-def get_producer_parameters():
-    global PRODUCER_ID, MESSAGE_SIZE_KIB
-
-    if len(sys.argv) < 3:
-        print('python producer.py <producer id> <message size in KiB>')
-        exit()
-
-    PRODUCER_ID = int(sys.argv[1])
-    if PRODUCER_ID not in VALID_PRODUCER_IDS:
-        print(f'Number of producers should be one of {VALID_PRODUCER_IDS}, but received {PRODUCER_ID}')
-        exit()
-
-    MESSAGE_SIZE_KIB = float(sys.argv[2])
-    if MESSAGE_SIZE_KIB not in VALID_MESSAGE_SIZES_KIB:
-        print(f'Message size should be one of {VALID_MESSAGE_SIZES_KIB}, but received {MESSAGE_SIZE_KIB}')
-        exit()
 
 
 def generate_random_bytes(size_in_bytes):
@@ -81,16 +69,20 @@ def benchmark(channel, dataset, results):
     global start_time
     start_time = time.time()
 
-    print(f'starting benchmark... start time={datetime.now()}')
     counter = 0
     benchmark_duration = (BENCHMARK_DURATION_MINUTES + BENCHMARK_WARMUP_MINUTES) * 60
+
     while (time.time() - start_time) < benchmark_duration:
         data = dataset[counter % DATASET_SIZE]       
 
+        queue_index = counter % PARTITION_COUNT
+        routing_key = f'{RABBITMQ_QUEUE_PREFIX}-{queue_index}'
+
         t1 = time.time()
-        properties = pika.BasicProperties(timestamp=int(time.time()))
-        channel.basic_publish(exchange='', routing_key=QUEUE, body=data['message'], properties=properties)
+        properties = pika.BasicProperties(timestamp=int(time.time() * 1000)) # ms
+        channel.basic_publish(exchange=RABBITMQ_EXCHANGE_NAME, routing_key=routing_key, body=data['message'], properties=properties)
         t2 = time.time()
+
         processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
         results.append([t2, data['message_size'], processing_time])
@@ -98,13 +90,26 @@ def benchmark(channel, dataset, results):
         time.sleep(random.random() * 0.001)
 
 
+def cleanup_results():
+    result_dir = os.path.dirname(PRODUCER_RESULT_CSV_FILENAME)
+    
+    for ext in ['*.csv', '*.txt']:
+        for f in glob.glob(os.path.join(result_dir, ext)):
+            try:
+                os.remove(f)
+            except OSError as e:
+                print(f"Error removing file {f}: {e}")
+
+
 def write_benchmark_time():
     global start_time, end_time
+    os.makedirs('results', exist_ok=True)
     with open(f'{RESULT_BENCHMARK_TIME_FILENAME}-{PRODUCER_ID}.txt', mode="w", newline="") as text_file:
         text_file.write(f'{start_time},{end_time}')
 
 
 def write_results_to_csv(results):
+    os.makedirs('results', exist_ok=True)
     with open(f'{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'processing_time'])
@@ -113,13 +118,16 @@ def write_results_to_csv(results):
 
 def main():
     global end_time
+    print(f'init time={datetime.now()}')
 
-    get_producer_parameters()
+    cleanup_results()
+
     connection, channel = initialize()
     results = []
     dataset = generate_dataset()
 
     try:
+        print(f'starting benchmark... start time={datetime.now()} producer id: {PRODUCER_ID} ')
         benchmark(channel, dataset, results)
     except KeyboardInterrupt:
         pass

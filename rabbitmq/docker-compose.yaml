@@ -1,7 +1,75 @@
 services: 
-  rabbitmq:
-    image: rabbitmq:4.0-management
-    container_name: rabbitmq
+  broker:
+    image: rabbitmq:${DOCKER_RABBITMQ_IMAGE_TAG}
+    container_name: ${DOCKER_RABBITMQ_BROKER_CONTAINER_NAME}
     ports:
       - "5672:5672"
-      - "15672:15672"
+      # - "15672:15672"
+    deploy:
+      resources:
+        limits:
+          cpus: ${BROKER_COMMON_CPU_LIMIT}
+          memory: ${BROKER_COMMON_MEMORY_LIMIT}
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "node_health_check"] 
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  queue-creator:
+    build: . 
+    container_name: rabbitmq-queue-creator
+    env_file:
+      - ../.env
+      - ./.env
+    environment:
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_BROKER_PORT: ${RABBITMQ_BROKER_PORT}
+      PARTITION_COUNT: ${PARTITION_COUNT}
+      RABBITMQ_QUEUE_PREFIX: ${RABBITMQ_QUEUE_PREFIX}
+    volumes:
+      - ./queue-creator.py:/app/queue-creator.py
+    depends_on:
+      broker:
+        condition: service_healthy 
+        
+    command: python queue-creator.py
+  
+  consumer:
+    build: .
+    command: bash -c "export CONSUMER_ID=$$(hostname); exec python consumer.py"
+    environment:
+      - PARTITION_COUNT=${PARTITION_COUNT} 
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./consumer.py:/app/consumer.py
+      - ./results/consumer:/app/results
+    depends_on:
+      broker:
+        condition: service_healthy
+      queue-creator:
+        condition: service_completed_successfully
+
+  producer:
+    build: .
+    command: bash -c "export PRODUCER_ID=$$(hostname); exec python producer.py"
+    environment:
+      - PARTITION_COUNT=${PARTITION_COUNT} 
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./producer.py:/app/producer.py
+      - ./results/producer:/app/results
+    depends_on:
+      broker:
+        condition: service_healthy
+      queue-creator:
+        condition: service_completed_successfully
+  
+volumes:
+  rabbitmq-data:
+    driver: local
