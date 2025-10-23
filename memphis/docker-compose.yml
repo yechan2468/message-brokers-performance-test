@@ -8,6 +8,8 @@ services:
       retries: 5
     networks:
       - memphis
+    volumes:
+      - memphis-postgres-data:/var/lib/postgresql/data
     ports:
       - '5005:5005'
     environment:
@@ -15,8 +17,14 @@ services:
       POSTGRESQL_PASSWORD: memphis
       POSTGRESQL_DATABASE: memphis
       POSTGRESQL_PORT_NUMBER: 5005
-  memphis:
-    image: "memphisos/memphis:1.4.4"
+    deploy:
+      resources:
+        limits:
+          cpus: ${BROKER_MEMPHIS_METADATA_CPU_LIMIT}
+          memory: ${BROKER_MEMPHIS_METADATA_MEMORY_LIMIT}
+  
+  broker:
+    image: memphisos/memphis:${DOCKER_MEMPHIS_IMAGE_TAG}
     depends_on:
       memphis-metadata:
         condition: service_healthy
@@ -24,9 +32,9 @@ services:
       test: wget http://127.0.0.1:9000 --spider || exit 1
       interval: 10s
       retries: 30
-      start_period: 5s
+      start_period: 60s
     restart: on-failure
-    pull_policy: always
+    # pull_policy: always
     networks:
       - memphis
     ports:
@@ -43,41 +51,117 @@ services:
       INITIAL_CONFIG_FILE: |
         users:
           mgmt:
-          - user: admin
-            password: Admin123456!
-          - user: test_mgmt
-            password: Test123456!
-          - user: test_mgmt2
-            password: Test123456@
+          - user: ${MEMPHIS_ADMIN_USERNAME}
+            password: ${MEMPHIS_ADMIN_PASSWORD}
           client:
-          - user: test
-            password: Test123456!@
-          - user: test2
-            password: Test123456@!
+          - user: ${MEMPHIS_USERNAME}
+            password: ${MEMPHIS_PASSWORD}
+          - user: ${MEMPHIS_USERNAME2}
+            password: ${MEMPHIS_PASSWORD2}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      
-  memphis-rest-gateway:
-    image: "memphisos/memphis-rest-gateway:1.2.8"
+    deploy:
+      resources:
+        limits:
+          cpus: ${BROKER_MEMPHIS_CPU_LIMIT}
+          memory: ${BROKER_MEMPHIS_MEMORY_LIMIT}
+
+  # memphis-rest-gateway:
+  #   image: "memphisos/memphis-rest-gateway:1.2.8"
+  #   depends_on:
+  #     memphis:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   pull_policy: always
+  #   networks:
+  #     - memphis
+  #   ports:
+  #     - "4444:4444"
+  #   environment:
+  #     JWT_SECRET: JWT_TEST_PURPOSE
+  #     REFRESH_JWT_SECRET: REFRESH_JWT_TEST_PURPOSE
+  #     USER_PASS_BASED_AUTH: '"true"'
+  #     CONNECTION_TOKEN: memphis
+  #     ROOT_USER: root
+  #     ROOT_PASSWORD: memphis
+  #     MEMPHIS_HOST: memphis
+  #     HTTP_PORT: 4444
+
+  station-creator:
+    build: .
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./station-creator.py:/app/station-creator.py
     depends_on:
-      memphis:
+      broker:
         condition: service_healthy
-    restart: on-failure
-    pull_policy: always
     networks:
       - memphis
-    ports:
-      - "4444:4444"
     environment:
-      JWT_SECRET: JWT_TEST_PURPOSE
-      REFRESH_JWT_SECRET: REFRESH_JWT_TEST_PURPOSE
-      USER_PASS_BASED_AUTH: '"true"'
-      CONNECTION_TOKEN: memphis
-      ROOT_USER: root
-      ROOT_PASSWORD: memphis
-      MEMPHIS_HOST: memphis
-      HTTP_PORT: 4444
+      MEMPHIS_BROKER_HOST: ${MEMPHIS_BROKER_HOST}
+      MEMPHIS_BROKER_PORT: ${MEMPHIS_BROKER_PORT}
+      MEMPHIS_ADMIN_USERNAME: ${MEMPHIS_ROOT_USERNAME}
+      MEMPHIS_ADMIN_PASSWORD: ${MEMPHIS_ROOT_PASSWORD}
+      MEMPHIS_TOPIC_NAME: ${MEMPHIS_TOPIC_NAME}
+      PARTITION_COUNT: ${PARTITION_COUNT}
+    restart: "no"
+    command: python station-creator.py
+
+  producer:
+    build: .
+    command: bash -c "export PRODUCER_ID=$(hostname | sed 's/.*-//'); exec python producer.py"
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./producer.py:/app/producer.py
+      - ./results/producer:/app/results
+    depends_on:
+      broker:
+        condition: service_healthy
+      consumer:
+        condition: service_started
+      station-creator:
+        condition: service_completed_successfully
+    networks:
+      - memphis
+    environment:
+      MEMPHIS_BROKER_HOST: ${MEMPHIS_BROKER_HOST}
+      MEMPHIS_BROKER_PORT: ${MEMPHIS_BROKER_PORT}
+      MEMPHIS_USERNAME: ${MEMPHIS_USERNAME}
+      MEMPHIS_PASSWORD: ${MEMPHIS_PASSWORD}
+      MEMPHIS_TOPIC_NAME: ${MEMPHIS_TOPIC_NAME}
+    restart: "no"
+
+  consumer:
+    build: .
+    command: bash -c "export CONSUMER_ID=$(hostname | sed 's/.*-//'); exec python consumer.py"
+    env_file:
+      - ../.env
+      - ./.env
+    volumes:
+      - ./consumer.py:/app/consumer.py
+      - ./results/consumer:/app/results
+    depends_on:
+      broker:
+        condition: service_healthy
+      station-creator:
+        condition: service_completed_successfully
+    networks:
+      - memphis
+    environment:
+      MEMPHIS_BROKER_HOST: ${MEMPHIS_BROKER_HOST}
+      MEMPHIS_BROKER_PORT: ${MEMPHIS_BROKER_PORT}
+      MEMPHIS_USERNAME: ${MEMPHIS_USERNAME2}
+      MEMPHIS_PASSWORD: ${MEMPHIS_PASSWORD2}
+      MEMPHIS_TOPIC_NAME: ${MEMPHIS_TOPIC_NAME}
+    restart: "no"
+
 networks:
   memphis:
     ipam:
       driver: default
+volumes:
+  memphis-postgres-data:

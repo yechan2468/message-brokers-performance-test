@@ -1,35 +1,28 @@
 import time
 from datetime import datetime
 import random
-import string
 import csv
 import os
 import asyncio
-import sys
+import glob
 from memphis import Memphis, Headers
 from dotenv import load_dotenv
 
 
+load_dotenv('../.env')
 load_dotenv()
 
-BROKER_HOST = "localhost"
-STATION_NAME = "memphis-station"
-PRODUCER_NAME = "memphis-producer"
-USERNAME = 'test'
-PASSWORD = 'Test123456!@'
 
 BENCHMARK_WARMUP_MINUTES = float(os.getenv('BENCHMARK_WARMUP_MINUTES'))
-BENCHMARK_DURATION_MINUTES = int(os.getenv('BENCHMARK_DURATION_MINUTES'))
+BENCHMARK_DURATION_MINUTES = float(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
 DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
 
 RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
-PRODUCER_ID = 0
-MESSAGE_SIZE_KIB = 0
-VALID_PRODUCER_IDS = list(map(int, os.getenv('VALID_PRODUCER_IDS').split(',')))
-VALID_MESSAGE_SIZES_KIB = list(map(float, os.getenv('VALID_MESSAGE_SIZES_KIB').split(',')))
+PRODUCER_ID = os.getenv('PRODUCER_ID')
+MESSAGE_SIZE_KIB = int(os.getenv('MESSAGE_SIZE_KIB'))
 
 results = []
 start_time = 0.
@@ -38,27 +31,16 @@ end_time = 0.
 
 async def initialize():
     memphis = Memphis()
-    await memphis.connect(host=BROKER_HOST, username=USERNAME, password=PASSWORD)
-    producer = await memphis.producer(station_name=STATION_NAME, producer_name=PRODUCER_NAME)
+    await memphis.connect(
+        host=os.getenv('MEMPHIS_BROKER_HOST'),
+        username=os.getenv('MEMPHIS_USERNAME'),
+        password=os.getenv('MEMPHIS_PASSWORD')
+    )
+    producer = await memphis.producer(
+        station_name=os.getenv('MEMPHIS_STATION_NAME'),
+        producer_name=os.getenv('MEMPHIS_PRODUCER_NAME')
+    )
     return memphis, producer
-
-
-def get_producer_parameters():
-    global PRODUCER_ID, MESSAGE_SIZE_KIB
-
-    if len(sys.argv) < 3:
-        print('python producer.py <number of producers> <message size in KiB>')
-        exit()
-
-    PRODUCER_ID = int(sys.argv[1])
-    if PRODUCER_ID not in VALID_PRODUCER_IDS:
-        print(f'Number of producers should be one of {VALID_PRODUCER_IDS}, but received {PRODUCER_ID}')
-        exit()
-
-    MESSAGE_SIZE_KIB = float(sys.argv[2])
-    if MESSAGE_SIZE_KIB not in VALID_MESSAGE_SIZES_KIB:
-        print(f'Message size should be one of {VALID_MESSAGE_SIZES_KIB}, but received {MESSAGE_SIZE_KIB}')
-        exit()
 
 
 def generate_random_bytes(size_in_bytes):
@@ -107,6 +89,24 @@ async def benchmark(producer, dataset):
         time.sleep(random.random() * 0.001)
 
 
+def cleanup_results():
+    result_dir = os.path.dirname(PRODUCER_RESULT_CSV_FILENAME)
+    
+    csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
+    for f in csv_files:
+        try:
+            os.remove(f)
+        except OSError as e:
+            print(f"Error removing CSV file {f}: {e}")
+            
+    txt_files = glob.glob(os.path.join(result_dir, '*.txt'))
+    for f in txt_files:
+        try:
+            os.remove(f)
+        except OSError as e:
+            print(f"Error removing TXT file {f}: {e}")
+
+
 def write_benchmark_time():
     global start_time, end_time
     with open(f'{RESULT_BENCHMARK_TIME_FILENAME}-{PRODUCER_ID}.txt', mode="w", newline="") as text_file:
@@ -123,8 +123,8 @@ def write_results_to_csv(results):
 async def main():
     global results, end_time
 
-    get_producer_parameters()
     memphis, producer = await initialize()
+    cleanup_results()
     dataset = generate_dataset()
 
     try:
