@@ -120,6 +120,9 @@ services:
     env_file:
       - ../.env
       - ./.env
+    environment:
+      DELIVERY_MODE: ${DELIVERY_MODE}
+      KAFKA_CONSUMER_ISOLATION_LEVEL: ${KAFKA_CONSUMER_ISOLATION_LEVEL}
     volumes:
       - ./consumer.py:/app/consumer.py
       - ./results/consumer:/app/results
@@ -137,6 +140,12 @@ services:
     env_file:
       - ../.env
       - ./.env
+    environment:
+      DELIVERY_MODE: ${DELIVERY_MODE}
+      KAFKA_ACKS: ${KAFKA_ACKS}
+      KAFKA_RETRIES: ${KAFKA_RETRIES}
+      KAFKA_ENABLE_IDEMPOTENCE: ${KAFKA_ENABLE_IDEMPOTENCE}
+      KAFKA_PRODUCER_TRANSACTIONAL_ID: ${KAFKA_PRODUCER_TRANSACTIONAL_ID}
     volumes:
       - ./producer.py:/app/producer.py
       - ./results/producer:/app/results
