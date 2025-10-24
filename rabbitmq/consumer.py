@@ -27,6 +27,9 @@ BENCHMARK_WARMUP_MINUTES = float(os.getenv('BENCHMARK_WARMUP_MINUTES'))
 BENCHMARK_DURATION_MINUTES = float(os.getenv('BENCHMARK_DURATION_MINUTES'))
 BENCHMARK_CONSUMER_AFTER_BENCHMARK_WAIT_MINUTES = float(os.getenv('BENCHMARK_CONSUMER_AFTER_BENCHMARK_WAIT_MINUTES'))
 
+DELIVERY_MODE = os.getenv('DELIVERY_MODE')
+RABBITMQ_AUTO_ACK = os.getenv('RABBITMQ_AUTO_ACK', 'true').lower()
+
 
 class ConsumerBenchmark:
     def __init__(self, consumer_id):
@@ -49,10 +52,14 @@ class ConsumerBenchmark:
     def consume_message(self, ch, method, properties, body):
         receive_time = time.time()
         
-        if receive_time < self.collection_start_time:
-            pass # warm up
-        elif receive_time > self.collection_end_time:
-            pass # after benchmark
+        if receive_time < self.collection_start_time: # warm up
+            if not RABBITMQ_AUTO_ACK:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
+        elif receive_time > self.collection_end_time: # after benchmark
+            if not RABBITMQ_AUTO_ACK:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
         else:
             payload_size = len(body)
             latency = receive_time - (properties.timestamp / 1000.0)
@@ -60,7 +67,10 @@ class ConsumerBenchmark:
             # lag = queue_state.method.message_count
             lag = -1
             
-            self.results.append([receive_time, payload_size, 0., latency, lag])
+            self.results.append([receive_time, payload_size, (time.time() - receive_time) * 1_000_000, latency, lag])
+
+            if not RABBITMQ_AUTO_ACK:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def initialize(benchmark_instance):
     try:
@@ -87,7 +97,7 @@ def initialize(benchmark_instance):
     channel.basic_consume(
         queue=benchmark_instance.target_queue, 
         on_message_callback=benchmark_instance.consume_message, 
-        auto_ack=True
+        auto_ack=RABBITMQ_AUTO_ACK
     )
     return connection, channel
 

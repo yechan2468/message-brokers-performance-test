@@ -41,6 +41,8 @@ services:
     command: bash -c "export CONSUMER_ID=$$(hostname); exec python consumer.py"
     environment:
       - PARTITION_COUNT=${PARTITION_COUNT} 
+      - RABBITMQ_DELIVERY_MODE=${RABBITMQ_DELIVERY_MODE}
+      - RABBITMQ_AUTO_ACK=${RABBITMQ_AUTO_ACK}
     env_file:
       - ../.env
       - ./.env
@@ -58,6 +60,8 @@ services:
     command: bash -c "export PRODUCER_ID=$$(hostname); exec python producer.py"
     environment:
       - PARTITION_COUNT=${PARTITION_COUNT} 
+      - RABBITMQ_DELIVERY_MODE=${RABBITMQ_DELIVERY_MODE}
+      - RABBITMQ_CONFIRM_MODE=${RABBITMQ_CONFIRM_MODE}
     env_file:
       - ../.env
       - ./.env

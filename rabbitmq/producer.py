@@ -6,11 +6,15 @@ import csv
 import os
 import glob
 from dotenv import load_dotenv
+from pika.exceptions import AMQPChannelError, AMQPConnectionError
 
 
 load_dotenv('../.env')
 load_dotenv()
 
+
+DELIVERY_MODE = os.getenv('DELIVERY_MODE') 
+RABBITMQ_CONFIRM_MODE = os.getenv('RABBITMQ_CONFIRM_MODE').lower()
 
 QUEUE_NAME = 'rabbitmq'
 
@@ -43,6 +47,11 @@ def initialize():
     ))
     channel = connection.channel()
     # channel.queue_declare(queue=QUEUE_NAME)
+
+    if RABBITMQ_CONFIRM_MODE:
+        # channel.confirm_delivery()
+        channel.tx_select()
+
     return connection,channel
 
 
@@ -79,15 +88,35 @@ def benchmark(channel, dataset, results):
         routing_key = f'{RABBITMQ_QUEUE_PREFIX}-{queue_index}'
 
         t1 = time.time()
-        properties = pika.BasicProperties(timestamp=int(time.time() * 1000)) # ms
-        channel.basic_publish(exchange=RABBITMQ_EXCHANGE_NAME, routing_key=routing_key, body=data['message'], properties=properties)
+        try:
+            properties = pika.BasicProperties(
+                timestamp=int(time.time() * 1000), # ms
+                delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE
+            )
+            channel.basic_publish(exchange=RABBITMQ_EXCHANGE_NAME, routing_key=routing_key, body=data['message'], properties=properties)
+        
+            if RABBITMQ_CONFIRM_MODE:
+                # if not channel.wait_for_confirms(timeout=10):
+                #     print(f"Warning: [{DELIVERY_MODE}] Broker NACK or Confirmation Timeout. Message may be resent or lost.")
+                #     continue
+                channel.tx_commit()
+
+        except (AMQPChannelError, AMQPConnectionError) as e:
+            if RABBITMQ_CONFIRM_MODE:
+                channel.tx_rollback()
+                print(f"RabbitMQ Transaction Error: Rollback executed. Message failed to deliver. {e}")
+            else:
+                print(f"RabbitMQ Channel Error during publish ({DELIVERY_MODE}): {e}")
+        except Exception as e:
+            print(f"Producer General Error during publish: {e}")
+            continue
         t2 = time.time()
 
         processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
         results.append([t2, data['message_size'], processing_time])
         counter += 1
-        time.sleep(random.random() * 0.001)
+        # time.sleep(random.random() * 0.001)
 
 
 def cleanup_results():
