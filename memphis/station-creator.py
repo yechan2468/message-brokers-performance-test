@@ -10,6 +10,12 @@ MEMPHIS_TOPIC_NAME = os.environ.get("MEMPHIS_TOPIC_NAME")
 PARTITION_COUNT = int(os.environ.get("PARTITION_COUNT"))
 REPLICATION_FACTOR = int(os.environ.get("REPLICATION_FACTOR", 1))
 
+# delivery
+MEMPHIS_IDEMPOTENCY = os.environ.get("MEMPHIS_IDEMPOTENCY").lower() == 'true'
+MEMPHIS_MAX_ACK_TIME_MS = int(os.environ.get("MEMPHIS_MAX_ACK_TIME_MS"))
+MEMPHIS_MAX_MESSAGE_DELIVERIES = int(os.environ.get("MEMPHIS_MAX_MESSAGE_DELIVERIES"))
+
+
 async def create_memphis_station():
     try:
         memphis = Memphis()
@@ -29,6 +35,11 @@ async def create_memphis_station():
                 # retention_value=604800, # 7일
                 # replicas=REPLICATION_FACTOR,
                 # storage_type="disk"
+
+                dls_type='disk',
+                idempotency_window_in_ms=5000 if MEMPHIS_IDEMPOTENCY else 0, # 멱등성 설정
+                max_message_deliveries=MEMPHIS_MAX_MESSAGE_DELIVERIES, # 최대 재전송 횟수
+                ack_wait_ms=MEMPHIS_MAX_ACK_TIME_MS, # Ack 대기 시간
             )
             print(f"Station '{MEMPHIS_TOPIC_NAME}' created successfully.")
         except Exception as e:

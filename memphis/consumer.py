@@ -16,6 +16,9 @@ BENCHMARK_CONSUMER_AFTER_BENCHMARK_WAIT_MINUTES = float(os.getenv('BENCHMARK_CON
 
 TOTAL_DURATION_SECONDS = (BENCHMARK_WARMUP_MINUTES + BENCHMARK_DURATION_MINUTES + BENCHMARK_CONSUMER_AFTER_BENCHMARK_WAIT_MINUTES) * 60.0
 
+DELIVERY_MODE = os.getenv('DELIVERY_MODE')
+MEMPHIS_CONSUMER_ACK_POLICY = os.getenv('MEMPHIS_CONSUMER_ACK_POLICY')
+
 
 results = []
 
@@ -28,7 +31,7 @@ async def initialize():
         password=os.getenv('MEMPHIS_PASSWORD')
     )
     consumer = await memphis.consumer(
-        station_name=os.getenv('MEMPHIS_STATION_NAME'),
+        station_name=os.getenv('MEMPHIS_TOPIC_NAME'),
         consumer_name=os.getenv('MEMPHIS_CONSUMER_NAME'),
         consumer_group=os.getenv('MEMPHIS_CONSUMER_GROUP_NAME')
     )
@@ -49,9 +52,9 @@ async def benchmark(consumer):
         t2 = time.time()
 
         for message in messages:
-            # if t2 < collection_start_time:
+            # if receive_time < collection_start_time:
             #     pass  # warmup
-            # elif t2 > collection_end_time:
+            # elif receive_time > collection_end_time:
             #     pass  # after benchmark
             # else:
             message_size = len(message.get_data())
@@ -64,7 +67,9 @@ async def benchmark(consumer):
 
             results.append([t2, message_size, processing_time, latency, -1])
 
-            await message.ack()
+            if MEMPHIS_CONSUMER_ACK_POLICY == 'explicit':
+                await message.ack()
+
             # time.sleep(random.random() * 0.001)
             # await asyncio.sleep(random.random() * 0.001)
 

@@ -37,7 +37,7 @@ async def initialize():
         password=os.getenv('MEMPHIS_PASSWORD')
     )
     producer = await memphis.producer(
-        station_name=os.getenv('MEMPHIS_STATION_NAME'),
+        station_name=os.getenv('MEMPHIS_TOPIC_NAME'),
         producer_name=os.getenv('MEMPHIS_PRODUCER_NAME')
     )
     return memphis, producer
