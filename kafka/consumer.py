@@ -1,7 +1,6 @@
 import time
 import csv
 import os
-import random
 import glob
 from datetime import datetime
 from confluent_kafka import Consumer
@@ -12,18 +11,29 @@ load_dotenv('../.env')
 load_dotenv()
 
 
+DELIVERY_MODE = os.getenv('DELIVERY_MODE')
+
+
 def stats_callback(stats_json_str):
     pass
 
 
 def initialize():
+    ISOLATION_LEVEL = os.getenv('KAFKA_CONSUMER_ISOLATION_LEVEL')
+    ENABLE_AUTO_COMMIT = DELIVERY_MODE not in ['AT_LEAST_ONCE', 'EXACTLY_ONCE']
+
     consumer = Consumer({
         'bootstrap.servers': f'{os.getenv("KAFKA_BROKER_HOSTNAME")}:{os.getenv("KAFKA_BROKER_PORT")}',
         'group.id': os.getenv('KAFKA_CONSUMER_GROUP_ID'),
         'auto.offset.reset': 'earliest',
         'stats_cb': stats_callback,
-        'statistics.interval.ms': int(os.getenv('KAFKA_STAT_INTERVAL_MS'))
+        'statistics.interval.ms': int(os.getenv('KAFKA_STAT_INTERVAL_MS')),
+
+        # delivery
+        'enable.auto.commit': ENABLE_AUTO_COMMIT,
+        'isolation.level': ISOLATION_LEVEL
     })
+
     consumer.subscribe([os.getenv('KAFKA_TOPIC_NAME')])
     return consumer
 
@@ -51,7 +61,14 @@ def benchmark(consumer, results):
         processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
         results.append([t2, payload_size, processing_time, latency, -1])
-        time.sleep(random.random() * 0.001)
+
+        if DELIVERY_MODE in ['AT_LEAST_ONCE', 'EXACTLY_ONCE']:
+             try:
+                consumer.commit(message=message, asynchronous=True)
+             except Exception as commit_err:
+                 print(f"Commit failed: {commit_err}")
+
+        # time.sleep(random.random() * 0.001)
     
     return results
 
