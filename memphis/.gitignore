@@ -1,3 +1,2 @@
 venv/
-*.csv
-*.txt
+results/
