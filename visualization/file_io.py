@@ -6,28 +6,37 @@ import os
 
 
 load_dotenv()
+load_dotenv('../.env')
 
 VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
 
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
-RESULT_BENCHMARK_TIME_FILENAME = os.getenv('RESULT_BENCHMARK_TIME_FILENAME')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
 
 def read_benchmark_time(broker):
-    filename = os.path.join(os.path.curdir, f"../{broker}/{RESULT_BENCHMARK_TIME_FILENAME}-1.txt")
+    base_dir = os.path.join(os.path.curdir, os.pardir, broker, "results", "producer")
+    pattern = os.path.join(base_dir, f"benchmark_time-*.txt")
+    file_list = glob.glob(pattern)
+    if not file_list:
+        raise FileNotFoundError(f"Cannot find file '{pattern}'")
+    filename = file_list[0]
+
     with open(filename, mode='r') as txt_file:
         start_time, end_time = map(float, txt_file.readline().split(','))
     
     return start_time, end_time
 
 
+def _read_and_concat_data(broker, isProducer):
+    target_dir_name = "producer" if isProducer else"consumer"
+    target_pattern = 'producer_metrics-*.csv' if isProducer else 'consumer_metrics-*.csv'
 
-def read_and_concat_data(broker):
-    filename = f"../{broker}/{PRODUCER_RESULT_CSV_FILENAME}-*.csv"
-    file_paths = glob.glob(filename)
+    base_dir = os.path.join(os.path.curdir, os.pardir, broker, 'results', target_dir_name)
+    pattern = os.path.join(base_dir, target_pattern)
+    file_list = glob.glob(pattern)
 
-    dataframes = [pd.read_csv(file) for file in file_paths]
+    dataframes = [pd.read_csv(file) for file in file_list]
     result = pd.concat(dataframes)
 
     result.sort_values(by="timestamp", inplace=True)
@@ -35,9 +44,16 @@ def read_and_concat_data(broker):
     return result
 
 
+def read_and_concat_producer_data(broker):
+    return _read_and_concat_data(broker, True)
+
+
+def read_and_concat_consumer_data(broker):
+    return _read_and_concat_data(broker, False)
+
+
 def _filter_by_start_time_and_end_time(df, start_time, end_time):
     filtered_df = df[(start_time <= df['timestamp'] ) & (df['timestamp'] <= end_time)]
-    
 
     return filtered_df
 
@@ -50,8 +66,8 @@ def _update_timestamp(df):
 
 
 def read_producer_data(broker, start_time, end_time):
-    result = read_and_concat_data(broker)
-    result = _filter_by_start_time_and_end_time(result, start_time, end_time)
+    result = read_and_concat_producer_data(broker)
+    # result = _filter_by_start_time_and_end_time(result, start_time, end_time)
     result = _update_timestamp(result)
 
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
@@ -62,9 +78,8 @@ def read_producer_data(broker, start_time, end_time):
 
 
 def read_consumer_data(broker, start_time, end_time):
-    filename = os.path.join(os.path.curdir, f"../{broker}/consumer_metrics.csv")
-    result = pd.read_csv(filename)
-    result = _filter_by_start_time_and_end_time(result, start_time, end_time)
+    result = read_and_concat_consumer_data(broker)
+    # result = _filter_by_start_time_and_end_time(result, start_time, end_time)
     result = _update_timestamp(result)
 
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
@@ -106,9 +121,7 @@ def read_memory_usage_data(broker):
     return memory_df
 
 
-graph_no = 0
 def save_plot(fig, filename):
-    global graph_no
-    graph_no += 1
-    fig.savefig(os.path.join(VISUALIZATION_RESULTS_DIR, f'{graph_no}_{filename}'), bbox_inches='tight')
+    filepath = os.path.join(VISUALIZATION_RESULTS_DIR, filename)
+    fig.savefig(filepath, bbox_inches='tight')
     plt.close(fig)

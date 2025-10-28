@@ -110,7 +110,7 @@ def benchmark(producer, dataset, results):
             print(f'Producer General Error: {e}')
     
         counter += 1
-        # time.sleep(random.random() * 0.001)
+        time.sleep(random.random() * 0.001)
         
     producer.flush()
 

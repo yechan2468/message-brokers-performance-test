@@ -6,6 +6,7 @@ import os
 import hashlib
 import pika
 import threading
+import random
 from dotenv import load_dotenv
 
 
@@ -71,6 +72,8 @@ class ConsumerBenchmark:
 
             if not RABBITMQ_AUTO_ACK:
                 ch.basic_ack(delivery_tag=method.delivery_tag)
+        
+        time.sleep(random.random() * 0.001)
 
 def initialize(benchmark_instance):
     try:

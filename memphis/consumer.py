@@ -4,6 +4,7 @@ from memphis import Memphis
 import asyncio
 import glob
 import os
+import random
 from dotenv import load_dotenv
 
 
@@ -71,7 +72,7 @@ async def benchmark(consumer):
                 await message.ack()
 
             # time.sleep(random.random() * 0.001)
-            # await asyncio.sleep(random.random() * 0.001)
+            await asyncio.sleep(random.random() * 0.001)
 
 
 def cleanup_results():

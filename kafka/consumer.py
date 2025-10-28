@@ -3,6 +3,7 @@ import csv
 import os
 import glob
 from datetime import datetime
+import random
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
@@ -68,7 +69,7 @@ def benchmark(consumer, results):
              except Exception as commit_err:
                  print(f"Commit failed: {commit_err}")
 
-        # time.sleep(random.random() * 0.001)
+        time.sleep(random.random() * 0.001)
     
     return results
 

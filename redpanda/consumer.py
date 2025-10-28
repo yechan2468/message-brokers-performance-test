@@ -68,7 +68,7 @@ def benchmark(consumer, results):
              except Exception as commit_err:
                  print(f"Commit failed: {commit_err}")
 
-        # time.sleep(random.random() * 0.001)
+        time.sleep(random.random() * 0.001)
     
     return results
 

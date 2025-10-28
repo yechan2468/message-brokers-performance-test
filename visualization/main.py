@@ -5,6 +5,7 @@ from file_io import *
 
 
 load_dotenv()
+load_dotenv('../.env')
 
 VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
@@ -12,9 +13,17 @@ BENCHMARK_WARMUP_MINUTES = float(os.getenv('BENCHMARK_WARMUP_MINUTES'))
 
 
 def initialize_directory():
-    os.makedirs(VISUALIZATION_RESULTS_DIR, exist_ok=True)
     for file in os.listdir(VISUALIZATION_RESULTS_DIR):
-        os.remove(os.path.join(VISUALIZATION_RESULTS_DIR, file))
+        if os.path.isfile(file):
+            os.remove(os.path.join(VISUALIZATION_RESULTS_DIR, file))
+
+    for broker in VISUALIZATION_BROKERS:
+        target_dir = os.path.join(VISUALIZATION_RESULTS_DIR, broker)
+
+        os.makedirs(target_dir, exist_ok=True)
+        for file in os.listdir(target_dir):
+            os.remove(os.path.join(target_dir, file))
+
 
 
 def read_data():
@@ -29,6 +38,8 @@ def read_data():
 
         producer_data[broker] = read_producer_data(broker, start_time, end_time)
         consumer_data[broker] = read_consumer_data(broker, start_time, end_time)
+        assert not producer_data[broker].empty 
+        assert not consumer_data[broker].empty
 
         resource_usage_data[broker] = {}
         # resource_usage_data[broker]['cpu'] = read_cpu_usage_data(broker)
