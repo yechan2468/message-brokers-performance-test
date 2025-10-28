@@ -53,6 +53,9 @@ def draw_graphs(base_directory_name, producer_data, consumer_data, resource_usag
     draw_latency_boxplot(base_directory_name, consumer_data)
     draw_latency_histogram(base_directory_name, consumer_data)
 
+    draw_producer_processing_time_graph(base_directory_name, producer_data)
+    draw_consumer_processing_time_graph(base_directory_name, consumer_data)
+
     # draw_lag_graph(consumer_data)
 
     # draw_cpu_usage_graph(resource_usage_data)

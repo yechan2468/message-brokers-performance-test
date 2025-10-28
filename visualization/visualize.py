@@ -19,12 +19,11 @@ def draw_producer_throughput_graph(base_directory_name, producer_data):
         prod_df = producer_data[broker]
         message_size = prod_df['message_size'].iloc[0]
         number_of_messages = len(prod_df)
-        total_message_size = message_size * number_of_messages
+        # total_message_size = message_size * number_of_messages
 
         total_time = (prod_df['timestamp'].iloc[-1] - prod_df['timestamp'].iloc[0]).total_seconds()
 
-        throughput = total_message_size / total_time
-        print(f'broker={broker}, msg_size={message_size}, #msgs={number_of_messages}, total_time={total_time}, prod_thpt={throughput}')
+        throughput = number_of_messages / total_time
         throughputs.append(throughput)
     
     x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
@@ -34,15 +33,15 @@ def draw_producer_throughput_graph(base_directory_name, producer_data):
 
     for bar in bars:
         height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.7f}", 
+        ax.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.0f}", 
                 ha='center', va='bottom', fontsize=10, color='black')
 
-    ax.set_title(f"Producer Throughput (message size={message_size} Byte)", fontsize=14)
+    ax.set_title(f"Producer Throughput", fontsize=14)
     ax.set_ylabel("Throughput", fontsize=12)
     ax.set_xlabel("Brokers", fontsize=12)
-    ax.set_ylim(0, max(throughputs) + 5)
+    ax.set_ylim(0, max(throughputs) * 1.2)
 
-    save_plot(fig, base_directory_name, f"producer_throughput_{message_size}KiB_graph.png")
+    save_plot(fig, base_directory_name, f"producer_throughput.png")
 
 
 def draw_consumer_throughput_graph(base_directory_name, consumer_data):
@@ -52,12 +51,11 @@ def draw_consumer_throughput_graph(base_directory_name, consumer_data):
         cons_df = consumer_data[broker]
         message_size = cons_df['message_size'].iloc[0]
         number_of_messages = len(cons_df)
-        total_message_size = message_size * number_of_messages
+        # total_message_size = message_size * number_of_messages
 
         total_time = (cons_df['timestamp'].iloc[-1] - cons_df['timestamp'].iloc[0]).total_seconds()
 
-        throughput = total_message_size / total_time
-        print(f'broker={broker}, msg_size={message_size}, #msgs={number_of_messages}, total_time={total_time}, cons_thpt={throughput}')
+        throughput = number_of_messages / total_time
         throughputs.append(throughput)
     
     x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
@@ -67,15 +65,15 @@ def draw_consumer_throughput_graph(base_directory_name, consumer_data):
 
     for bar in bars:
         height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.7f}", 
+        ax.text(bar.get_x() + bar.get_width() / 2, height, f"{height:.0f}", 
                 ha='center', va='bottom', fontsize=10, color='black')
 
-    ax.set_title(f"Consumer Throughput (message size={message_size} Byte)", fontsize=14)
+    ax.set_title(f"Consumer Throughput", fontsize=14)
     ax.set_ylabel("Throughput", fontsize=12)
     ax.set_xlabel("Brokers", fontsize=12)
-    ax.set_ylim(0, max(throughputs) + 5)
+    ax.set_ylim(0, max(throughputs) * 1.2)
 
-    save_plot(fig, base_directory_name, f"consumer_throughput_{message_size}KiB_graph.png")
+    save_plot(fig, base_directory_name, f"consumer_throughput.png")
 
 
 def _draw_broker_throughput_byterate_boxplots(base_directory_name, producer_data, consumer_data):
@@ -277,7 +275,7 @@ def draw_latency_boxplot(base_directory_name, consumer_data):
     for broker in consumer_data:
         broker_data = consumer_data[broker]['latency']
         stats = broker_data.describe()
-        ax.annotate(f"Mean: {stats['mean']:.4f}\nMedian: {stats['50%']:.4f}\nStddev: {stats['std']:.4f}]\nMax: {stats['max']:.4f}\nMin: {stats['min']:.4f}", 
+        ax.annotate(f"Mean: {stats['mean']:.2f}\nMedian: {stats['50%']:.2f}\nStddev: {stats['std']:.2f}\nMax: {stats['max']:.2f}\nMin: {stats['min']:.2f}", 
                     xy=(broker, stats['75%']), xytext=(0, 20), 
                     textcoords='offset points', ha='center', fontsize=8)
 
@@ -339,3 +337,71 @@ def draw_memory_usage_graph(base_directory_name, resource_usage_data):
         ax.legend()
         plt.tight_layout()
         save_plot(fig, base_directory_name, f'{broker}_memory_usage.png')
+
+
+def draw_producer_processing_time_graph(base_directory_name, producer_data):
+    return _draw_processing_time_graph(base_directory_name, producer_data, True)
+
+
+def draw_consumer_processing_time_graph(base_directory_name, consumer_data):
+    return _draw_processing_time_graph(base_directory_name, consumer_data, False)
+
+
+def _draw_processing_time_graph(base_directory_name, data, is_producer):
+    plot_data = [data[d]['processing_time'] for d in data]
+    
+    stats_list = []
+    overall_max_for_limit = 0
+    for broker_name in VISUALIZATION_BROKERS:
+        series = pd.Series(data[broker_name]['processing_time'])
+        stats = series.describe()
+        stats_list.append(stats)
+        
+        current_max_y = stats['max']
+        if current_max_y > overall_max_for_limit:
+            overall_max_for_limit = current_max_y
+            
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    ax.boxplot(
+        plot_data,
+        labels=VISUALIZATION_BROKERS,
+        patch_artist=True,
+        boxprops=dict(facecolor='skyblue', color='black'),
+        medianprops=dict(color='black', linewidth=1),
+        whiskerprops=dict(color='black', linewidth=1.5),
+        capprops=dict(color='black', linewidth=1.5),
+        showfliers=False
+    )
+
+    for i, stats in enumerate(stats_list):
+        annotation_text = (
+            f"Mean: {stats['mean']:.1f} μs\n"
+            f"Median: {stats['50%']:.1f} μs\n"
+            f"Stddev: {stats['std']:.1f} μs\n"
+            f"Max: {stats['max']:.1f} μs\n"
+            f"Min: {stats['min']:.1f} μs"
+        )
+        
+        base_y = stats['75%'] 
+        
+        ax.annotate(
+            annotation_text, 
+            xy=(i + 1, base_y), 
+            xytext=(0, 5),
+            textcoords='offset points', 
+            ha='center', 
+            fontsize=8,
+            # bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.7)
+        )
+
+    ax.set_yscale('log')
+    
+    if overall_max_for_limit > 0:
+        ax.set_ylim(ymax=overall_max_for_limit * 1.05) 
+    
+    ax.set_title(f"{'Producer' if is_producer else 'Consumer'} Processing Time Distribution Across Brokers", fontsize=14)
+    ax.set_ylabel("Processing Time (μs, log10 scale)", fontsize=12)
+    ax.set_xlabel("Brokers", fontsize=12)
+
+    save_plot(fig, base_directory_name, f'{"producer" if is_producer else "consumer"}_processing_time_boxplot')

@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from file_io import *
 
-VISUALIZATION_BROKERS = "kafka,redpanda,memphis".split(',')
+VISUALIZATION_BROKERS = "kafka,redpanda,memphis,rabbitmq".split(',')
 
 data = {}
 for broker in VISUALIZATION_BROKERS:
