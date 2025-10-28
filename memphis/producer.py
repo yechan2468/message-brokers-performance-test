@@ -24,6 +24,8 @@ PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 PRODUCER_ID = os.getenv('PRODUCER_ID')
 MESSAGE_SIZE_KIB = int(os.getenv('MESSAGE_SIZE_KIB'))
 
+RESULT_BASEPATH = f'results/{os.getenv("PRODUCER_COUNT")}-{os.getenv("PARTITION_COUNT")}-{os.getenv("CONSUMER_COUNT")}-{os.getenv("DELIVERY_MODE")}/producer'
+
 results = []
 start_time = 0.
 end_time = 0.
@@ -91,16 +93,16 @@ async def benchmark(producer, dataset):
 
 
 def cleanup_results():
-    result_dir = os.path.join('results', os.path.dirname(PRODUCER_RESULT_CSV_FILENAME))
+    os.makedirs(RESULT_BASEPATH, exist_ok=True)
     
-    csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
+    csv_files = glob.glob(os.path.join(RESULT_BASEPATH, '*.csv'))
     for f in csv_files:
         try:
             os.remove(f)
         except OSError as e:
             print(f"Error removing CSV file {f}: {e}")
             
-    txt_files = glob.glob(os.path.join(result_dir, '*.txt'))
+    txt_files = glob.glob(os.path.join(RESULT_BASEPATH, '*.txt'))
     for f in txt_files:
         try:
             os.remove(f)
@@ -110,12 +112,16 @@ def cleanup_results():
 
 def write_benchmark_time():
     global start_time, end_time
-    with open(f'results/{RESULT_BENCHMARK_TIME_FILENAME}-{PRODUCER_ID}.txt', mode="w", newline="") as text_file:
+    filename = f'{RESULT_BENCHMARK_TIME_FILENAME}-{datetime.now().strftime("%m%d_%H%M%S")}-{PRODUCER_ID}.txt'
+
+    with open(os.path.join(RESULT_BASEPATH, filename), mode="w", newline="") as text_file:
         text_file.write(f'{start_time},{end_time}')
 
 
 def write_results_to_csv(results):
-    with open(f'results/{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
+    filename = f'{PRODUCER_RESULT_CSV_FILENAME}-{datetime.now().strftime("%m%d_%H%M%S")}-{PRODUCER_ID}.csv'
+
+    with open(os.path.join(RESULT_BASEPATH, filename), mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(["timestamp", "message_size", "processing_time"])
         csv_writer.writerows(results)

@@ -122,7 +122,7 @@ services:
       - ./.env
     volumes:
       - ./producer.py:/app/producer.py
-      - ./results/producer:/app/results
+      - ./results:/app/results
     depends_on:
       broker:
         condition: service_healthy
@@ -133,6 +133,10 @@ services:
     networks:
       - memphis
     environment:
+      PRODUCER_COUNT: ${PRODUCER_COUNT}
+      CONSUMER_COUNT: ${CONSUMER_COUNT}
+      PARTITION_COUNT: ${PARTITION_COUNT}
+      DELIVERY_MODE: ${DELIVERY_MODE}
       MEMPHIS_BROKER_HOST: ${MEMPHIS_BROKER_HOST}
       MEMPHIS_BROKER_PORT: ${MEMPHIS_BROKER_PORT}
       MEMPHIS_USERNAME: ${MEMPHIS_USERNAME}
@@ -148,7 +152,7 @@ services:
       - ./.env
     volumes:
       - ./consumer.py:/app/consumer.py
-      - ./results/consumer:/app/results
+      - ./results:/app/results
     depends_on:
       broker:
         condition: service_healthy
@@ -157,6 +161,10 @@ services:
     networks:
       - memphis
     environment:
+      PRODUCER_COUNT: ${PRODUCER_COUNT}
+      CONSUMER_COUNT: ${CONSUMER_COUNT}
+      PARTITION_COUNT: ${PARTITION_COUNT}
+      DELIVERY_MODE: ${DELIVERY_MODE}
       MEMPHIS_BROKER_HOST: ${MEMPHIS_BROKER_HOST}
       MEMPHIS_BROKER_PORT: ${MEMPHIS_BROKER_PORT}
       MEMPHIS_USERNAME: ${MEMPHIS_USERNAME2}

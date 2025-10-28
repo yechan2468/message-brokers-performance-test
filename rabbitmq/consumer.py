@@ -31,6 +31,8 @@ BENCHMARK_CONSUMER_AFTER_BENCHMARK_WAIT_MINUTES = float(os.getenv('BENCHMARK_CON
 DELIVERY_MODE = os.getenv('DELIVERY_MODE')
 RABBITMQ_AUTO_ACK = os.getenv('RABBITMQ_AUTO_ACK', 'true').lower()
 
+RESULT_BASEPATH = f'results/{os.getenv("PRODUCER_COUNT")}-{os.getenv("PARTITION_COUNT")}-{os.getenv("CONSUMER_COUNT")}-{os.getenv("DELIVERY_MODE")}/consumer'
+
 
 class ConsumerBenchmark:
     def __init__(self, consumer_id):
@@ -137,9 +139,9 @@ def shutdown_consumer(connection, total_duration_seconds):
 
 
 def cleanup_results():
-    result_dir = os.path.join('results', os.path.dirname(RESULT_CSV_FILENAME))
+    os.makedirs(RESULT_BASEPATH, exist_ok=True)
     
-    csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
+    csv_files = glob.glob(os.path.join(RESULT_BASEPATH, '*.csv'))
     for f in csv_files:
         try:
             os.remove(f)
@@ -148,9 +150,9 @@ def cleanup_results():
 
 
 def write_results_to_csv(results, consumer_id):
-    os.makedirs('results', exist_ok=True)
-    filename = f'results/{RESULT_CSV_FILENAME}-{consumer_id}.csv'
-    with open(filename, mode='w', newline='') as csv_file:
+    filename = f'{RESULT_CSV_FILENAME}-{datetime.now().strftime("%m%d_%H%M%S")}-{consumer_id}.csv'
+
+    with open(os.path.join(RESULT_BASEPATH, filename), mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'processing_time', 'latency', 'lag'])
         csv_writer.writerows(results)

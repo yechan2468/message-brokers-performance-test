@@ -13,6 +13,7 @@ load_dotenv()
 
 
 DELIVERY_MODE = os.getenv('DELIVERY_MODE')
+RESULT_BASEPATH = f'results/{os.getenv("PRODUCER_COUNT")}-{os.getenv("PARTITION_COUNT")}-{os.getenv("CONSUMER_COUNT")}-{os.getenv("DELIVERY_MODE")}/consumer'
 
 
 def stats_callback(stats_json_str):
@@ -75,9 +76,9 @@ def benchmark(consumer, results):
 
 
 def cleanup_results():
-    result_dir = os.path.join('results', os.path.dirname(os.getenv('CONSUMER_RESULT_CSV_FILENAME')))
+    os.makedirs(RESULT_BASEPATH, exist_ok=True)
     
-    csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
+    csv_files = glob.glob(os.path.join(RESULT_BASEPATH, '*.csv'))
     for f in csv_files:
         try:
             os.remove(f)
@@ -86,8 +87,9 @@ def cleanup_results():
 
 
 def write_results_to_csv(results):
-    filename = f'results/{os.getenv("CONSUMER_RESULT_CSV_FILENAME")}-{os.getenv("CONSUMER_ID")}.csv'
-    with open(filename, mode='w', newline='') as csv_file:
+    filename = f'{os.getenv("CONSUMER_RESULT_CSV_FILENAME")}-{datetime.now().strftime("%m%d_%H%M%S")}-{os.getenv("CONSUMER_ID")}.csv'
+
+    with open(os.path.join(RESULT_BASEPATH, filename), mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'processing_time', 'latency', 'lag'])
         csv_writer.writerows(results)

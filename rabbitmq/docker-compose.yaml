@@ -40,15 +40,17 @@ services:
     build: .
     command: bash -c "export CONSUMER_ID=$$(hostname); exec python consumer.py"
     environment:
-      - PARTITION_COUNT=${PARTITION_COUNT} 
-      - RABBITMQ_DELIVERY_MODE=${RABBITMQ_DELIVERY_MODE}
+      - PRODUCER_COUNT=${PRODUCER_COUNT}
+      - CONSUMER_COUNT=${CONSUMER_COUNT}
+      - PARTITION_COUNT=${PARTITION_COUNT}
+      - DELIVERY_MODE=${DELIVERY_MODE}
       - RABBITMQ_AUTO_ACK=${RABBITMQ_AUTO_ACK}
     env_file:
       - ../.env
       - ./.env
     volumes:
       - ./consumer.py:/app/consumer.py
-      - ./results/consumer:/app/results
+      - ./results:/app/results
     depends_on:
       broker:
         condition: service_healthy
@@ -59,15 +61,17 @@ services:
     build: .
     command: bash -c "export PRODUCER_ID=$$(hostname); exec python producer.py"
     environment:
+      - PRODUCER_COUNT=${PRODUCER_COUNT}
+      - CONSUMER_COUNT=${CONSUMER_COUNT}
       - PARTITION_COUNT=${PARTITION_COUNT} 
-      - RABBITMQ_DELIVERY_MODE=${RABBITMQ_DELIVERY_MODE}
+      - DELIVERY_MODE=${DELIVERY_MODE}
       - RABBITMQ_CONFIRM_MODE=${RABBITMQ_CONFIRM_MODE}
     env_file:
       - ../.env
       - ./.env
     volumes:
       - ./producer.py:/app/producer.py
-      - ./results/producer:/app/results
+      - ./results:/app/results
     depends_on:
       broker:
         condition: service_healthy

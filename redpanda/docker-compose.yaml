@@ -121,11 +121,14 @@ services:
       - ../.env
       - ./.env
     environment:
+      PRODUCER_COUNT: ${PRODUCER_COUNT}
+      CONSUMER_COUNT: ${CONSUMER_COUNT}
+      PARTITION_COUNT: ${PARTITION_COUNT}
       DELIVERY_MODE: ${DELIVERY_MODE}
       KAFKA_CONSUMER_ISOLATION_LEVEL: ${KAFKA_CONSUMER_ISOLATION_LEVEL}
     volumes:
       - ./consumer.py:/app/consumer.py
-      - ./results/consumer:/app/results
+      - ./results:/app/results
     depends_on:
       broker:
         condition: service_healthy
@@ -141,6 +144,9 @@ services:
       - ../.env
       - ./.env
     environment:
+      PRODUCER_COUNT: ${PRODUCER_COUNT}
+      CONSUMER_COUNT: ${CONSUMER_COUNT}
+      PARTITION_COUNT: ${PARTITION_COUNT}
       DELIVERY_MODE: ${DELIVERY_MODE}
       KAFKA_ACKS: ${KAFKA_ACKS}
       KAFKA_RETRIES: ${KAFKA_RETRIES}
@@ -148,7 +154,7 @@ services:
       KAFKA_PRODUCER_TRANSACTIONAL_ID: ${KAFKA_PRODUCER_TRANSACTIONAL_ID}
     volumes:
       - ./producer.py:/app/producer.py
-      - ./results/producer:/app/results
+      - ./results:/app/results
     depends_on:
       consumer:
         condition: service_started
