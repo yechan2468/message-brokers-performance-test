@@ -14,8 +14,8 @@ VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
 
-def read_benchmark_time(broker):
-    base_dir = os.path.join(os.path.curdir, os.pardir, broker, "results", "producer")
+def read_benchmark_time(broker, base_directory_name):
+    base_dir = os.path.join(os.path.curdir, os.pardir, broker, "results", base_directory_name, "producer")
     pattern = os.path.join(base_dir, f"benchmark_time-*.txt")
     file_list = glob.glob(pattern)
     if not file_list:
@@ -28,11 +28,11 @@ def read_benchmark_time(broker):
     return start_time, end_time
 
 
-def _read_and_concat_data(broker, isProducer):
-    target_dir_name = "producer" if isProducer else"consumer"
+def _read_and_concat_data(broker, base_directory_name, isProducer):
+    target_dir_name = "producer" if isProducer else "consumer"
     target_pattern = 'producer_metrics-*.csv' if isProducer else 'consumer_metrics-*.csv'
 
-    base_dir = os.path.join(os.path.curdir, os.pardir, broker, 'results', target_dir_name)
+    base_dir = os.path.join(os.path.curdir, os.pardir, broker, 'results', base_directory_name, target_dir_name)
     pattern = os.path.join(base_dir, target_pattern)
     file_list = glob.glob(pattern)
 
@@ -44,12 +44,12 @@ def _read_and_concat_data(broker, isProducer):
     return result
 
 
-def read_and_concat_producer_data(broker):
-    return _read_and_concat_data(broker, True)
+def read_and_concat_producer_data(broker, base_directory_name):
+    return _read_and_concat_data(broker, base_directory_name, True)
 
 
-def read_and_concat_consumer_data(broker):
-    return _read_and_concat_data(broker, False)
+def read_and_concat_consumer_data(broker, base_directory_name):
+    return _read_and_concat_data(broker, base_directory_name, False)
 
 
 def _filter_by_start_time_and_end_time(df, start_time, end_time):
@@ -65,8 +65,8 @@ def _update_timestamp(df):
     return df
 
 
-def read_producer_data(broker, start_time, end_time):
-    result = read_and_concat_producer_data(broker)
+def read_producer_data(broker, base_directory_name, start_time, end_time):
+    result = read_and_concat_producer_data(broker, base_directory_name)
     # result = _filter_by_start_time_and_end_time(result, start_time, end_time)
     result = _update_timestamp(result)
 
@@ -77,8 +77,8 @@ def read_producer_data(broker, start_time, end_time):
     return result
 
 
-def read_consumer_data(broker, start_time, end_time):
-    result = read_and_concat_consumer_data(broker)
+def read_consumer_data(broker, base_directory_name, start_time, end_time):
+    result = read_and_concat_consumer_data(broker, base_directory_name)
     # result = _filter_by_start_time_and_end_time(result, start_time, end_time)
     result = _update_timestamp(result)
 
@@ -121,7 +121,7 @@ def read_memory_usage_data(broker):
     return memory_df
 
 
-def save_plot(fig, filename):
-    filepath = os.path.join(VISUALIZATION_RESULTS_DIR, filename)
+def save_plot(fig, base_directory_name, filename):
+    filepath = os.path.join(VISUALIZATION_RESULTS_DIR, base_directory_name, filename)
     fig.savefig(filepath, bbox_inches='tight')
     plt.close(fig)

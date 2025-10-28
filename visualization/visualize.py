@@ -12,7 +12,7 @@ VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 
 
-def draw_producer_throughput_graph(producer_data):
+def draw_producer_throughput_graph(base_directory_name, producer_data):
     message_size = 0
     throughputs = []
     for broker in VISUALIZATION_BROKERS:
@@ -42,10 +42,10 @@ def draw_producer_throughput_graph(producer_data):
     ax.set_xlabel("Brokers", fontsize=12)
     ax.set_ylim(0, max(throughputs) + 5)
 
-    save_plot(fig,  f"producer_throughput_{message_size}KiB_graph.png")
+    save_plot(fig, base_directory_name, f"producer_throughput_{message_size}KiB_graph.png")
 
 
-def draw_consumer_throughput_graph(consumer_data):
+def draw_consumer_throughput_graph(base_directory_name, consumer_data):
     message_size = 0
     throughputs = []
     for broker in VISUALIZATION_BROKERS:
@@ -75,10 +75,10 @@ def draw_consumer_throughput_graph(consumer_data):
     ax.set_xlabel("Brokers", fontsize=12)
     ax.set_ylim(0, max(throughputs) + 5)
 
-    save_plot(fig, f"consumer_throughput_{message_size}KiB_graph.png")
+    save_plot(fig, base_directory_name, f"consumer_throughput_{message_size}KiB_graph.png")
 
 
-def _draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
+def _draw_broker_throughput_byterate_boxplots(base_directory_name, producer_data, consumer_data):
     for broker in VISUALIZATION_BROKERS:
         prod_df = producer_data[broker]
         cons_df = consumer_data[broker]
@@ -115,10 +115,10 @@ def _draw_broker_throughput_byterate_boxplots(producer_data, consumer_data):
             )
 
         plt.tight_layout()
-        save_plot(fig, f"{broker}_throughput_byterate_boxplot.png")
+        save_plot(fig, base_directory_name, f"{broker}_throughput_byterate_boxplot.png")
 
 
-def draw_consumer_throughput_byterate_graph(consumer_data):
+def draw_consumer_throughput_byterate_graph(base_directory_name, consumer_data):
     for broker in VISUALIZATION_BROKERS:
         cons_df = consumer_data[broker]
 
@@ -163,10 +163,10 @@ def draw_consumer_throughput_byterate_graph(consumer_data):
         )
 
         plt.tight_layout()
-        save_plot(fig, f"{broker}_consumer_throughput_byterate_boxplot.png")
+        save_plot(fig, base_directory_name, f"{broker}_consumer_throughput_byterate_boxplot.png")
 
 
-def _draw_producer_throughput_byterate_boxplots(producer_data):
+def _draw_producer_throughput_byterate_boxplots(base_directory_name, producer_data):
     throughput_data = []
     byterate_data = []
 
@@ -213,10 +213,10 @@ def _draw_producer_throughput_byterate_boxplots(producer_data):
             )
 
         plt.tight_layout()
-        save_plot(fig, f"{title.replace(' ', '_').lower()}.png")
+        save_plot(fig, base_directory_name, f"{title.replace(' ', '_').lower()}.png")
 
 
-def _draw_consumer_throughput_byterate_boxplots(consumer_data):
+def _draw_consumer_throughput_byterate_boxplots(base_directory_name, consumer_data):
     throughput_data = []
     byterate_data = []
 
@@ -263,11 +263,11 @@ def _draw_consumer_throughput_byterate_boxplots(consumer_data):
             )
 
         plt.tight_layout()
-        save_plot(fig, f"{title.replace(' ', '_').lower()}.png")
+        save_plot(fig, base_directory_name, f"{title.replace(' ', '_').lower()}.png")
 
 
 
-def draw_latency_boxplot(consumer_data):
+def draw_latency_boxplot(base_directory_name, consumer_data):
     fig, ax = plt.subplots(figsize=(10, 6))
     latency_data = pd.concat(
         [consumer_data[br][['latency']].assign(Broker=br) for br in consumer_data]
@@ -285,10 +285,10 @@ def draw_latency_boxplot(consumer_data):
     ax.set_xlabel("Broker")
     ax.set_ylabel("Latency (seconds)")
     plt.tight_layout()
-    save_plot(fig, 'latency.png')
+    save_plot(fig, base_directory_name, 'latency.png')
 
 
-def draw_latency_histogram(consumer_data):
+def draw_latency_histogram(base_directory_name, consumer_data):
     fig, axes = plt.subplots(len(consumer_data), 1, figsize=(10, 4 * len(consumer_data)), sharex=True)
 
     for idx, (broker, data) in enumerate(consumer_data.items()):
@@ -299,10 +299,10 @@ def draw_latency_histogram(consumer_data):
         ax.set_ylabel("Probability")
 
     plt.tight_layout()
-    save_plot(fig, 'latency_histogram.png')
+    save_plot(fig, base_directory_name, 'latency_histogram.png')
 
 
-def draw_lag_graph(consumer_data):
+def draw_lag_graph(base_directory_name, consumer_data):
     fig, ax = plt.subplots(figsize=(12, 6))
     for broker in consumer_data:
         ax.plot(consumer_data[broker]['timestamp'], consumer_data[broker]['lag'], label=broker)
@@ -312,10 +312,10 @@ def draw_lag_graph(consumer_data):
     ax.set_ylabel("Lag")
     ax.legend()
     plt.tight_layout()
-    save_plot(fig, 'lag.png')
+    save_plot(fig, base_directory_name, 'lag.png')
 
 
-def draw_cpu_usage_graph(resource_usage_data):
+def draw_cpu_usage_graph(base_directory_name, resource_usage_data):
     for broker in VISUALIZATION_BROKERS:
         data = resource_usage_data[broker]['cpu']
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -325,10 +325,10 @@ def draw_cpu_usage_graph(resource_usage_data):
         ax.set_ylabel("CPU Usage (%)")
         ax.legend()
         plt.tight_layout()
-        save_plot(fig, f'{broker}_cpu_usage.png')
+        save_plot(fig, base_directory_name, f'{broker}_cpu_usage.png')
 
 
-def draw_memory_usage_graph(resource_usage_data):
+def draw_memory_usage_graph(base_directory_name, resource_usage_data):
     for broker in VISUALIZATION_BROKERS:
         data = resource_usage_data[broker]['memory']
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -338,4 +338,4 @@ def draw_memory_usage_graph(resource_usage_data):
         ax.set_ylabel("Memory Usage (GiB)")
         ax.legend()
         plt.tight_layout()
-        save_plot(fig, f'{broker}_memory_usage.png')
+        save_plot(fig, base_directory_name, f'{broker}_memory_usage.png')

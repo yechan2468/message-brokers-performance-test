@@ -1,2 +1,7 @@
+PRODUCER_COUNT=${1}
+PARTITION_COUNT=${2}
+CONSUMER_COUNT=${3}
+DELIVERY_MODE=${4:-L}
+
 source ./venv/bin/activate
-python ./main.py
+python ./main.py ${PRODUCER_COUNT} ${PARTITION_COUNT} ${CONSUMER_COUNT} ${DELIVERY_MODE}
