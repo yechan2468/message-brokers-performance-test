@@ -3,6 +3,7 @@ import csv
 import os
 import glob
 from datetime import datetime
+import random
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
@@ -74,7 +75,7 @@ def benchmark(consumer, results):
 
 
 def cleanup_results():
-    result_dir = os.path.dirname(os.getenv('CONSUMER_RESULT_CSV_FILENAME'))
+    result_dir = os.path.join('results', os.path.dirname(os.getenv('CONSUMER_RESULT_CSV_FILENAME')))
     
     csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
     for f in csv_files:
@@ -85,7 +86,7 @@ def cleanup_results():
 
 
 def write_results_to_csv(results):
-    filename = f'{os.getenv("CONSUMER_RESULT_CSV_FILENAME")}-{os.getenv("CONSUMER_ID")}.csv'
+    filename = f'results/{os.getenv("CONSUMER_RESULT_CSV_FILENAME")}-{os.getenv("CONSUMER_ID")}.csv'
     with open(filename, mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'processing_time', 'latency', 'lag'])

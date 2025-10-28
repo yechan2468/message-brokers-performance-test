@@ -137,7 +137,7 @@ def shutdown_consumer(connection, total_duration_seconds):
 
 
 def cleanup_results():
-    result_dir = os.path.dirname(RESULT_CSV_FILENAME)
+    result_dir = os.path.join('results', os.path.dirname(RESULT_CSV_FILENAME))
     
     csv_files = glob.glob(os.path.join(result_dir, '*.csv'))
     for f in csv_files:
@@ -149,7 +149,7 @@ def cleanup_results():
 
 def write_results_to_csv(results, consumer_id):
     os.makedirs('results', exist_ok=True)
-    filename = f'{RESULT_CSV_FILENAME}-{consumer_id}.csv'
+    filename = f'results/{RESULT_CSV_FILENAME}-{consumer_id}.csv'
     with open(filename, mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'processing_time', 'latency', 'lag'])

@@ -120,7 +120,7 @@ def benchmark(channel, dataset, results):
 
 
 def cleanup_results():
-    result_dir = os.path.dirname(PRODUCER_RESULT_CSV_FILENAME)
+    result_dir = os.path.join('results', os.path.dirname(PRODUCER_RESULT_CSV_FILENAME))
     
     for ext in ['*.csv', '*.txt']:
         for f in glob.glob(os.path.join(result_dir, ext)):
@@ -133,13 +133,13 @@ def cleanup_results():
 def write_benchmark_time():
     global start_time, end_time
     os.makedirs('results', exist_ok=True)
-    with open(f'{RESULT_BENCHMARK_TIME_FILENAME}-{PRODUCER_ID}.txt', mode="w", newline="") as text_file:
+    with open(f'results/{RESULT_BENCHMARK_TIME_FILENAME}-{PRODUCER_ID}.txt', mode="w", newline="") as text_file:
         text_file.write(f'{start_time},{end_time}')
 
 
 def write_results_to_csv(results):
     os.makedirs('results', exist_ok=True)
-    with open(f'{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
+    with open(f'results/{PRODUCER_RESULT_CSV_FILENAME}-{PRODUCER_ID}.csv', mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(['timestamp', 'message_size', 'processing_time'])
         csv_writer.writerows(results)
