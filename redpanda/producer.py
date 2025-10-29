@@ -4,6 +4,7 @@ from datetime import datetime
 import csv
 import os
 import glob
+import json
 from confluent_kafka import Producer, KafkaException
 from dotenv import load_dotenv
 
@@ -54,20 +55,25 @@ def initialize():
     return producer
 
 
-def generate_random_bytes(size_in_bytes):
-    return os.urandom(int(size_in_bytes))
-
-
 def generate_dataset():
     dataset = []
     DATASET_SIZE = int(os.getenv('DATASET_SIZE'))
+    MESSAGE_SIZE_KIB = int(os.getenv('MESSAGE_SIZE_KIB'))
+    metadata_size = 50
+    total_message_size = MESSAGE_SIZE_KIB * 1024
+    random_data_size = max(total_message_size - metadata_size, 0)
 
     for i in range(DATASET_SIZE):
-        MESSAGE_SIZE_KIB = int(os.getenv('MESSAGE_SIZE_KIB'))
-        message = generate_random_bytes(MESSAGE_SIZE_KIB * 1024)
+        payload_bytes = os.urandom(random_data_size)
+
+        message = {
+            'time_sent_ms': 0,
+            'payload': payload_bytes.hex()
+        }
+
         dataset.append({
             'message': message,
-            'message_size': MESSAGE_SIZE_KIB * 1024
+            'message_size': total_message_size
         })
         if i % 500 == 0:
             print(f'generating dataset... ({(i/DATASET_SIZE)*100}%, {i} / {DATASET_SIZE})')
@@ -87,12 +93,16 @@ def benchmark(producer, dataset, results):
     while (time.time() - start_time) < benchmark_duration:
         data = dataset[counter % int(os.getenv('DATASET_SIZE'))]
         
+        message_to_send_dict = data['message'].copy()
+        message_to_send_dict['time_sent_ms'] = int(time.time() * 1000)
+        final_message_bytes = json.dumps(message_to_send_dict).encode('utf-8')
+        
         t1 = time.time()
         try:
             if DELIVERY_MODE == 'EXACTLY_ONCE':
                 producer.begin_transaction()
             
-            producer.produce(topic_name, data['message'], callback=report_delivery)
+            producer.produce(topic_name, final_message_bytes, callback=report_delivery)
             producer.poll(0)
 
             if DELIVERY_MODE == 'EXACTLY_ONCE':

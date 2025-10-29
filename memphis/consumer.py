@@ -23,6 +23,7 @@ MEMPHIS_CONSUMER_ACK_POLICY = os.getenv('MEMPHIS_CONSUMER_ACK_POLICY')
 
 RESULT_BASEPATH = f'results/{os.getenv("PRODUCER_COUNT")}-{os.getenv("PARTITION_COUNT")}-{os.getenv("CONSUMER_COUNT")}-{os.getenv("DELIVERY_MODE")}/consumer'
 
+MAX_POLL_RECORDS = int(os.getenv('CONSUMER_MAX_POLL_RECORDS'))
 
 results = []
 
@@ -52,8 +53,12 @@ async def benchmark(consumer):
 
     while True:
         t1 = time.time()
-        messages = await consumer.fetch()
+        messages = await consumer.fetch(batch_size=MAX_POLL_RECORDS)
         t2 = time.time()
+
+        if not messages:
+            await asyncio.sleep(random.random() * 0.000001)
+            continue
 
         for message in messages:
             # if receive_time < collection_start_time:
@@ -75,7 +80,7 @@ async def benchmark(consumer):
                 await message.ack()
 
             # time.sleep(random.random() * 0.001)
-            await asyncio.sleep(random.random() * 0.001)
+            await asyncio.sleep(random.random() * 0.000001)
 
 
 def cleanup_results():

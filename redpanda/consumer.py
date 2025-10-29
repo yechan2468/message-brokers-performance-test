@@ -4,6 +4,7 @@ import os
 import glob
 from datetime import datetime
 import random
+import json
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
@@ -14,6 +15,7 @@ load_dotenv()
 
 DELIVERY_MODE = os.getenv('DELIVERY_MODE')
 RESULT_BASEPATH = f'results/{os.getenv("PRODUCER_COUNT")}-{os.getenv("PARTITION_COUNT")}-{os.getenv("CONSUMER_COUNT")}-{os.getenv("DELIVERY_MODE")}/consumer'
+MAX_POLL_RECORDS = int(os.getenv('CONSUMER_MAX_POLL_RECORDS'))
 
 
 def stats_callback(stats_json_str):
@@ -49,28 +51,44 @@ def benchmark(consumer, results):
 
     while time.time() < end_time_limit:
         t1 = time.time()
-        message = consumer.poll(timeout=60.0)
+        messages = consumer.consume(num_messages=MAX_POLL_RECORDS, timeout=1.0)
         t2 = time.time()
 
-        if message is None:
+        if not messages:
             continue
-        if message.error():
-            print(f"Consumer error: {message.error()}")
-            break
-            
-        payload_size = len(message)
-        latency = t2 - message.timestamp()[1] / 1000.0  # in seconds
-        processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
-        results.append([t2, payload_size, processing_time, latency, -1])
+        last_processed_message = None 
+        
+        for message in messages:
 
-        if DELIVERY_MODE in ['AT_LEAST_ONCE', 'EXACTLY_ONCE']:
-             try:
-                consumer.commit(message=message, asynchronous=True)
-             except Exception as commit_err:
-                 print(f"Commit failed: {commit_err}")
+            if message.error():
+                if message.error().code() == KafkaError._PARTITION_EOF:
+                    continue
+                print(f"Consumer error: {message.error()}")
+                return results
+        
+            try:
+                message_value = json.loads(message.value().decode('utf-8'))
+                time_sent = float(message_value['time_sent_ms']) / 1000.0  # sec
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Warning: Failed to extract producer timestamp. Error: {e}. Using broker timestamp.")
+                time_sent = message.timestamp()[1] / 1000.0
+                
+            payload_size = len(message)
+            latency = t2 - time_sent  # in seconds
+            processing_time = f'{(t2 - t1) * 1_000_000:.7f}'
 
-        time.sleep(random.random() * 0.001)
+            results.append([t2, payload_size, processing_time, latency, -1])
+
+            last_processed_message = message
+
+            if DELIVERY_MODE in ['AT_LEAST_ONCE', 'EXACTLY_ONCE']:
+                try:
+                    consumer.commit(message=last_processed_message, asynchronous=True)
+                except Exception as commit_err:
+                    print(f"Commit failed: {commit_err}")
+
+            time.sleep(random.random() * 0.000001)
     
     return results
 

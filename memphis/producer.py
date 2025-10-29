@@ -89,7 +89,7 @@ async def benchmark(producer, dataset):
 
         counter += 1
         # time.sleep(random.random() * 0.001)
-        await asyncio.sleep(random.random() * 0.001)
+        await asyncio.sleep(random.random() * 0.000001)
 
 
 def cleanup_results():

@@ -33,6 +33,8 @@ RABBITMQ_AUTO_ACK = os.getenv('RABBITMQ_AUTO_ACK', 'true').lower()
 
 RESULT_BASEPATH = f'results/{os.getenv("PRODUCER_COUNT")}-{os.getenv("PARTITION_COUNT")}-{os.getenv("CONSUMER_COUNT")}-{os.getenv("DELIVERY_MODE")}/consumer'
 
+MAX_POLL_RECORDS = int(os.getenv('CONSUMER_MAX_POLL_RECORDS'))
+
 
 class ConsumerBenchmark:
     def __init__(self, consumer_id):
@@ -75,7 +77,7 @@ class ConsumerBenchmark:
             if not RABBITMQ_AUTO_ACK:
                 ch.basic_ack(delivery_tag=method.delivery_tag)
         
-        time.sleep(random.random() * 0.001)
+        time.sleep(random.random() * 0.000001)
 
 def initialize(benchmark_instance):
     try:
@@ -97,7 +99,7 @@ def initialize(benchmark_instance):
     
     print(f"Consumer ID {benchmark_instance.consumer_id} subscribing to queue: {benchmark_instance.target_queue}")
     
-    channel.basic_qos(prefetch_count=1)
+    channel.basic_qos(prefetch_count=MAX_POLL_RECORDS)
     
     channel.basic_consume(
         queue=benchmark_instance.target_queue, 

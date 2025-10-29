@@ -15,8 +15,8 @@ MIN_METRICS_LINES = 100
 MAX_FILE_AGE_MINUTES = 30 # 파일 생성 시각 최대 허용 시간 (30분)
 
 # 테스트를 위한 시간 상수 (분 단위)
-INIT_TIME_MINUTES = 3
-POST_WAIT_TIME_MINUTES = 3
+UP_WAIT_TIME_MINUTES = 0.2
+DOWN_WAIT_TIME_MINUTES = 0.2
 MAX_CHECK_DURATION_MINUTES = 15
 CHECK_INTERVAL_SECONDS = 5
 
@@ -125,6 +125,8 @@ def _load_parameters_from_file(filepath: str) -> list[str]:
         with open(filepath, 'r', encoding='utf-8') as f:
             for line in f:
                 stripped_line = line.strip()
+                if stripped_line.startswith("#"):
+                    continue
                 if stripped_line:
                     parameters.append(stripped_line)
         return parameters
@@ -500,7 +502,7 @@ def _check_visualization_subtask_success_criteria(parameter: str) -> bool:
             all_files_valid = False
             
     if all_files_valid:
-        _log_message(parameter, "INFO", f"Visualization file check passed. Found 6 valid PNG files in {param_dir}")
+        _log_message(parameter, "INFO", f"Visualization file check passed. Found >0 valid PNG files in {param_dir}")
         return True
     else:
         _log_message(parameter, "WARN", f"Visualization Validation FAILED: One or more PNG files failed the age check.")
@@ -529,7 +531,7 @@ def run_subtask(name: str, config: dict, parameter: str, task_results: dict[str,
         return False
 
     # 2. Init + Warmup + Benchmark 시간 대기
-    pre_check_wait_minutes = INIT_TIME_MINUTES + BENCHMARK_WARMUP_MINUTES + BENCHMARK_DURATION_MINUTES
+    pre_check_wait_minutes = UP_WAIT_TIME_MINUTES + BENCHMARK_WARMUP_MINUTES + BENCHMARK_DURATION_MINUTES
     pre_check_wait_seconds = pre_check_wait_minutes * 60
     
     _log_message(parameter, "INFO", 
@@ -561,8 +563,8 @@ def run_subtask(name: str, config: dict, parameter: str, task_results: dict[str,
         _log_message(parameter, "WARN", f"Subtask {name} DOWN script failed. Proceeding with validation result.") 
 
     # 5. Post 대기 시간동안 대기
-    post_wait_seconds = POST_WAIT_TIME_MINUTES * 60
-    _log_message(parameter, "INFO", f"Waiting for POST clean up: {POST_WAIT_TIME_MINUTES} min.")
+    post_wait_seconds = DOWN_WAIT_TIME_MINUTES * 60
+    _log_message(parameter, "INFO", f"Waiting for POST clean up: {DOWN_WAIT_TIME_MINUTES} min.")
     time.sleep(post_wait_seconds)
 
     # 6. 최종 서브태스크 성공/실패 결정 및 실시간 기록
@@ -614,8 +616,8 @@ def run_visualization_task(parameter: str, task_results: dict[str, str]) -> bool
             time.sleep(CHECK_INTERVAL_SECONDS)
             
     # 3. Post 대기 시간동안 대기 
-    post_wait_seconds = POST_WAIT_TIME_MINUTES * 60
-    _log_message(parameter, "INFO", f"Waiting for POST clean up: {POST_WAIT_TIME_MINUTES} min.")
+    post_wait_seconds = DOWN_WAIT_TIME_MINUTES * 60
+    _log_message(parameter, "INFO", f"Waiting for POST clean up: {DOWN_WAIT_TIME_MINUTES} min.")
     time.sleep(post_wait_seconds)
             
     # 4. 최종 서브태스크 성공/실패 결정 및 실시간 기록
