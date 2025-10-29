@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import datetime
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 import glob
@@ -9,7 +10,9 @@ load_dotenv()
 load_dotenv('../.env')
 
 VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
-
+if os.getenv('DELIVERY_MODE') == 'EXACTLY_ONCE':
+    if ('rabbitmq' in VISUALIZATION_BROKERS):
+        VISUALIZATION_BROKERS.remove('rabbitmq')
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
 
@@ -67,7 +70,7 @@ def _update_timestamp(df):
 
 def read_producer_data(broker, base_directory_name, start_time, end_time):
     result = read_and_concat_producer_data(broker, base_directory_name)
-    # result = _filter_by_start_time_and_end_time(result, start_time, end_time)
+    result = _filter_by_start_time_and_end_time(result, start_time, end_time)
     result = _update_timestamp(result)
 
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
@@ -79,7 +82,7 @@ def read_producer_data(broker, base_directory_name, start_time, end_time):
 
 def read_consumer_data(broker, base_directory_name, start_time, end_time):
     result = read_and_concat_consumer_data(broker, base_directory_name)
-    # result = _filter_by_start_time_and_end_time(result, start_time, end_time)
+    result = _filter_by_start_time_and_end_time(result, start_time, end_time)
     result = _update_timestamp(result)
 
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
@@ -122,6 +125,6 @@ def read_memory_usage_data(broker):
 
 
 def save_plot(fig, base_directory_name, filename):
-    filepath = os.path.join(VISUALIZATION_RESULTS_DIR, base_directory_name, filename)
+    filepath = os.path.join(VISUALIZATION_RESULTS_DIR, base_directory_name, f'{filename}-{datetime.now().strftime("%m%d_%H%M%S")}.png')
     fig.savefig(filepath, bbox_inches='tight')
     plt.close(fig)

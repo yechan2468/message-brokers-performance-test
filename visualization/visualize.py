@@ -8,14 +8,14 @@ from file_io import save_plot
 
 load_dotenv()
 
-VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',')
+VISUALIZATION_BROKERS = os.getenv('VISUALIZATION_BROKERS').split(',') # deprecated. don't use
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 
 
-def draw_producer_throughput_graph(base_directory_name, producer_data):
+def draw_producer_throughput_graph(brokers, base_directory_name, producer_data):
     message_size = 0
     throughputs = []
-    for broker in VISUALIZATION_BROKERS:
+    for broker in brokers:
         prod_df = producer_data[broker]
         message_size = prod_df['message_size'].iloc[0]
         number_of_messages = len(prod_df)
@@ -26,7 +26,7 @@ def draw_producer_throughput_graph(base_directory_name, producer_data):
         throughput = number_of_messages / total_time
         throughputs.append(throughput)
     
-    x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
+    x_labels = [f"{brokers[i]}" for i in range(len(throughputs))]
 
     fig, ax = plt.subplots(figsize=(8, 5))
     bars = ax.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
@@ -41,13 +41,13 @@ def draw_producer_throughput_graph(base_directory_name, producer_data):
     ax.set_xlabel("Brokers", fontsize=12)
     ax.set_ylim(0, max(throughputs) * 1.2)
 
-    save_plot(fig, base_directory_name, f"producer_throughput.png")
+    save_plot(fig, base_directory_name, f"producer_throughput")
 
 
-def draw_consumer_throughput_graph(base_directory_name, consumer_data):
+def draw_consumer_throughput_graph(brokers, base_directory_name, consumer_data):
     message_size = 0
     throughputs = []
-    for broker in VISUALIZATION_BROKERS:
+    for broker in brokers:
         cons_df = consumer_data[broker]
         message_size = cons_df['message_size'].iloc[0]
         number_of_messages = len(cons_df)
@@ -58,7 +58,7 @@ def draw_consumer_throughput_graph(base_directory_name, consumer_data):
         throughput = number_of_messages / total_time
         throughputs.append(throughput)
     
-    x_labels = [f"{VISUALIZATION_BROKERS[i]}" for i in range(len(throughputs))]
+    x_labels = [f"{brokers[i]}" for i in range(len(throughputs))]
 
     fig, ax = plt.subplots(figsize=(8, 5))
     bars = ax.bar(x_labels, throughputs, color='skyblue', edgecolor='black')
@@ -73,7 +73,7 @@ def draw_consumer_throughput_graph(base_directory_name, consumer_data):
     ax.set_xlabel("Brokers", fontsize=12)
     ax.set_ylim(0, max(throughputs) * 1.2)
 
-    save_plot(fig, base_directory_name, f"consumer_throughput.png")
+    save_plot(fig, base_directory_name, f"consumer_throughput")
 
 
 def _draw_broker_throughput_byterate_boxplots(base_directory_name, producer_data, consumer_data):
@@ -113,7 +113,7 @@ def _draw_broker_throughput_byterate_boxplots(base_directory_name, producer_data
             )
 
         plt.tight_layout()
-        save_plot(fig, base_directory_name, f"{broker}_throughput_byterate_boxplot.png")
+        save_plot(fig, base_directory_name, f"{broker}_throughput_byterate_boxplot")
 
 
 def draw_consumer_throughput_byterate_graph(base_directory_name, consumer_data):
@@ -161,7 +161,7 @@ def draw_consumer_throughput_byterate_graph(base_directory_name, consumer_data):
         )
 
         plt.tight_layout()
-        save_plot(fig, base_directory_name, f"{broker}_consumer_throughput_byterate_boxplot.png")
+        save_plot(fig, base_directory_name, f"{broker}_consumer_throughput_byterate_boxplot")
 
 
 def _draw_producer_throughput_byterate_boxplots(base_directory_name, producer_data):
@@ -211,7 +211,7 @@ def _draw_producer_throughput_byterate_boxplots(base_directory_name, producer_da
             )
 
         plt.tight_layout()
-        save_plot(fig, base_directory_name, f"{title.replace(' ', '_').lower()}.png")
+        save_plot(fig, base_directory_name, f"{title.replace(' ', '_').lower()}")
 
 
 def _draw_consumer_throughput_byterate_boxplots(base_directory_name, consumer_data):
@@ -261,7 +261,7 @@ def _draw_consumer_throughput_byterate_boxplots(base_directory_name, consumer_da
             )
 
         plt.tight_layout()
-        save_plot(fig, base_directory_name, f"{title.replace(' ', '_').lower()}.png")
+        save_plot(fig, base_directory_name, f"{title.replace(' ', '_').lower()}")
 
 
 
@@ -283,7 +283,7 @@ def draw_latency_boxplot(base_directory_name, consumer_data):
     ax.set_xlabel("Broker")
     ax.set_ylabel("Latency (seconds)")
     plt.tight_layout()
-    save_plot(fig, base_directory_name, 'latency.png')
+    save_plot(fig, base_directory_name, 'latency')
 
 
 def draw_latency_histogram(base_directory_name, consumer_data):
@@ -297,7 +297,7 @@ def draw_latency_histogram(base_directory_name, consumer_data):
         ax.set_ylabel("Probability")
 
     plt.tight_layout()
-    save_plot(fig, base_directory_name, 'latency_histogram.png')
+    save_plot(fig, base_directory_name, 'latency_histogram')
 
 
 def draw_lag_graph(base_directory_name, consumer_data):
@@ -310,7 +310,7 @@ def draw_lag_graph(base_directory_name, consumer_data):
     ax.set_ylabel("Lag")
     ax.legend()
     plt.tight_layout()
-    save_plot(fig, base_directory_name, 'lag.png')
+    save_plot(fig, base_directory_name, 'lag')
 
 
 def draw_cpu_usage_graph(base_directory_name, resource_usage_data):
@@ -323,7 +323,7 @@ def draw_cpu_usage_graph(base_directory_name, resource_usage_data):
         ax.set_ylabel("CPU Usage (%)")
         ax.legend()
         plt.tight_layout()
-        save_plot(fig, base_directory_name, f'{broker}_cpu_usage.png')
+        save_plot(fig, base_directory_name, f'{broker}_cpu_usage')
 
 
 def draw_memory_usage_graph(base_directory_name, resource_usage_data):
@@ -336,23 +336,23 @@ def draw_memory_usage_graph(base_directory_name, resource_usage_data):
         ax.set_ylabel("Memory Usage (GiB)")
         ax.legend()
         plt.tight_layout()
-        save_plot(fig, base_directory_name, f'{broker}_memory_usage.png')
+        save_plot(fig, base_directory_name, f'{broker}_memory_usage')
 
 
-def draw_producer_processing_time_graph(base_directory_name, producer_data):
-    return _draw_processing_time_graph(base_directory_name, producer_data, True)
+def draw_producer_processing_time_graph(brokers, base_directory_name, producer_data):
+    return _draw_processing_time_graph(brokers, base_directory_name, producer_data, True)
 
 
-def draw_consumer_processing_time_graph(base_directory_name, consumer_data):
-    return _draw_processing_time_graph(base_directory_name, consumer_data, False)
+def draw_consumer_processing_time_graph(brokers, base_directory_name, consumer_data):
+    return _draw_processing_time_graph(brokers, base_directory_name, consumer_data, False)
 
 
-def _draw_processing_time_graph(base_directory_name, data, is_producer):
+def _draw_processing_time_graph(brokers, base_directory_name, data, is_producer):
     plot_data = [data[d]['processing_time'] for d in data]
     
     stats_list = []
     overall_max_for_limit = 0
-    for broker_name in VISUALIZATION_BROKERS:
+    for broker_name in brokers:
         series = pd.Series(data[broker_name]['processing_time'])
         stats = series.describe()
         stats_list.append(stats)
@@ -365,7 +365,7 @@ def _draw_processing_time_graph(base_directory_name, data, is_producer):
     
     ax.boxplot(
         plot_data,
-        labels=VISUALIZATION_BROKERS,
+        labels=brokers,
         patch_artist=True,
         boxprops=dict(facecolor='skyblue', color='black'),
         medianprops=dict(color='black', linewidth=1),
