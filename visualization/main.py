@@ -35,8 +35,8 @@ def read_data(brokers, base_directory_name):
 
         producer_data[broker] = read_producer_data(broker, base_directory_name, start_time, end_time)
         consumer_data[broker] = read_consumer_data(broker, base_directory_name, start_time, end_time)
-        assert not producer_data[broker].empty 
-        assert not consumer_data[broker].empty
+        assert not producer_data[broker].empty, "Make sure benchmark duration is not too short"
+        assert not consumer_data[broker].empty, "Make sure benchmark duration is not too short"
 
         resource_usage_data[broker] = {}
         resource_usage_data[broker]['cpu'] = read_cpu_usage_data(start_time, end_time)

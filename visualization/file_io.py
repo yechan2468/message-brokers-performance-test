@@ -184,10 +184,11 @@ def read_cpu_usage_data(start_ts, end_ts):
     elapsed_minutes = time_delta_index.total_seconds() / 60
     cpu_df.index = elapsed_minutes
 
-    cpu_df['Busy User'] *= 6
-    cpu_df['Busy System'] *= 6
-    cpu_df['Busy Iowait'] *= 6
-    cpu_df['Busy Other'] *= 6
+    core_multiplier = 24 / os.getenv('BROKER_COMMON_CPU_LIMIT')
+    cpu_df['Busy User'] *= core_multiplier
+    cpu_df['Busy System'] *= core_multiplier
+    cpu_df['Busy Iowait'] *= core_multiplier
+    cpu_df['Busy Other'] *= core_multiplier
 
     return cpu_df
 
