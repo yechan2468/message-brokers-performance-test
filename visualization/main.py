@@ -39,8 +39,13 @@ def read_data(brokers, base_directory_name):
         assert not consumer_data[broker].empty
 
         resource_usage_data[broker] = {}
-        # resource_usage_data[broker]['cpu'] = read_cpu_usage_data(broker)
-        # resource_usage_data[broker]['memory'] = read_memory_usage_data(broker)
+        resource_usage_data[broker]['cpu'] = read_cpu_usage_data(start_time, end_time)
+        resource_usage_data[broker]['memory'] = read_memory_usage_data(start_time, end_time)
+        resource_usage_data[broker]['disk'] = read_disk_iops_data(start_time, end_time)
+        assert not resource_usage_data[broker]['cpu'].empty 
+        assert not resource_usage_data[broker]['memory'].empty
+        assert not resource_usage_data[broker]['disk'].empty
+
         print('done.')
 
     return producer_data, consumer_data, resource_usage_data
@@ -55,6 +60,10 @@ def draw_graphs(brokers, base_directory_name, producer_data, consumer_data, reso
 
     draw_producer_processing_time_graph(brokers, base_directory_name, producer_data)
     draw_consumer_processing_time_graph(brokers, base_directory_name, consumer_data)
+
+    draw_cpu_usage_graph(brokers, base_directory_name, resource_usage_data)
+    draw_memory_usage_graph(brokers, base_directory_name, resource_usage_data)
+    draw_disk_iops_graph(brokers, base_directory_name, resource_usage_data)
 
     # draw_lag_graph(consumer_data)
 

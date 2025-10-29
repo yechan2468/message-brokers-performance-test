@@ -1,5 +1,7 @@
+import requests
 import pandas as pd
 from datetime import datetime
+import time
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 import glob
@@ -94,34 +96,147 @@ def read_consumer_data(broker, base_directory_name, start_time, end_time):
     return result
 
 
-def read_cpu_usage_data(broker):
-    filename = f'../{broker}/cpu_usage.csv'
-    cpu_df = pd.read_csv(filename, sep=",")
-    cpu_df['timestamp'] = pd.to_datetime(cpu_df['Time'])
-    cpu_df['cpu_usage'] = (
-        cpu_df["Busy System"].str.rstrip('%').astype(float) +
-        cpu_df["Busy User"].str.rstrip('%').astype(float) +
-        cpu_df["Busy Iowait"].str.rstrip('%').astype(float) +
-        cpu_df["Busy IRQs"].str.rstrip('%').astype(float) +
-        cpu_df["Busy Other"].str.rstrip('%').astype(float)
-    )
+# def read_cpu_usage_data(broker):
+#     filename = f'../{broker}/cpu_usage.csv'
+#     cpu_df = pd.read_csv(filename, sep=",")
+#     cpu_df['timestamp'] = pd.to_datetime(cpu_df['Time'])
+#     cpu_df['cpu_usage'] = (
+#         cpu_df["Busy System"].str.rstrip('%').astype(float) +
+#         cpu_df["Busy User"].str.rstrip('%').astype(float) +
+#         cpu_df["Busy Iowait"].str.rstrip('%').astype(float) +
+#         cpu_df["Busy IRQs"].str.rstrip('%').astype(float) +
+#         cpu_df["Busy Other"].str.rstrip('%').astype(float)
+#     )
+
+#     return cpu_df
+
+
+# def read_memory_usage_data(broker):
+#     filename = f'../{broker}/memory_usage.csv'
+#     memory_df = pd.read_csv(filename, sep=",")
+#     memory_df['timestamp'] = pd.to_datetime(memory_df['Time'])
+#     memory_df['RAM Used'] = memory_df['RAM Used'].apply(
+#         lambda x: float(x.rstrip(" MiB")) / 1024 if "MiB" in x else float(x.rstrip(" GiB"))
+#     )
+#     memory_df['RAM Cache + Buffer'] = memory_df['RAM Cache + Buffer'].apply(
+#         lambda x: float(x.rstrip(" MiB")) / 1024 if "MiB" in x else float(x.rstrip(" GiB"))
+#     )
+#     memory_df['memory_usage'] = memory_df['RAM Used'] + memory_df['RAM Cache + Buffer']
+
+#     return memory_df
+
+
+def fetch_prometheus_data(query, start_time_ts, end_time_ts):
+    api_url = f'http://localhost:9090/api/v1/query_range'
+    
+    params = {
+        'query': query,
+        'start': start_time_ts,
+        'end': end_time_ts,
+        'step': '60s'
+    }
+    
+    try:
+        response = requests.get(api_url, params=params)
+        response.raise_for_status() 
+        data = response.json()
+        
+        if data['status'] == 'success' and data['data']['result']:
+            result = data['data']['result'][0]['values'] 
+            
+            df = pd.DataFrame(result, columns=['timestamp', 'value'])
+            
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s', utc=True)
+            
+            df['timestamp'] = df['timestamp'].dt.tz_convert('Asia/Seoul')
+            
+            df['value'] = pd.to_numeric(df['value'])
+            df = df.set_index('timestamp')
+            return df[['value']]
+        else:
+            print(f"Data not found. query: {query}")
+            return pd.DataFrame()
+
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to fetch data from Prometheus: {e}")
+        return pd.DataFrame()
+
+
+def read_cpu_usage_data(start_ts, end_ts):
+    cpu_queries = {
+        'Busy User': 'rate(node_cpu_seconds_total{mode="user"}[1m]) * 100',
+        'Busy System': 'rate(node_cpu_seconds_total{mode="system"}[1m]) * 100',
+        'Busy Iowait': 'rate(node_cpu_seconds_total{mode="iowait"}[1m]) * 100',
+        'Busy Other': 'rate(node_cpu_seconds_total{mode=~"nice|irq|softirq|steal|guest.*"}[1m]) * 100', 
+        'Idle': 'rate(node_cpu_seconds_total{mode="idle"}[1m]) * 100'
+    }
+    
+    cpu_df = pd.DataFrame()
+    for label, query in cpu_queries.items():
+        data = fetch_prometheus_data(query, start_ts, end_ts)
+        if not data.empty:
+            cpu_df[label] = data['value']
+    
+    assert not cpu_df.empty
+
+    print(cpu_df)
+
+    start_time = cpu_df.index[0]
+    time_delta_index = cpu_df.index - start_time
+    elapsed_minutes = time_delta_index.total_seconds() / 60
+    cpu_df.index = elapsed_minutes
 
     return cpu_df
 
 
-def read_memory_usage_data(broker):
-    filename = f'../{broker}/memory_usage.csv'
-    memory_df = pd.read_csv(filename, sep=",")
-    memory_df['timestamp'] = pd.to_datetime(memory_df['Time'])
-    memory_df['RAM Used'] = memory_df['RAM Used'].apply(
-        lambda x: float(x.rstrip(" MiB")) / 1024 if "MiB" in x else float(x.rstrip(" GiB"))
-    )
-    memory_df['RAM Cache + Buffer'] = memory_df['RAM Cache + Buffer'].apply(
-        lambda x: float(x.rstrip(" MiB")) / 1024 if "MiB" in x else float(x.rstrip(" GiB"))
-    )
-    memory_df['memory_usage'] = memory_df['RAM Used'] + memory_df['RAM Cache + Buffer']
+def read_memory_usage_data(start_ts, end_ts):
+    total_mem_df = fetch_prometheus_data('node_memory_MemTotal_bytes', start_ts, end_ts)
+    assert not total_mem_df.empty
 
-    return memory_df
+    total_mem = total_mem_df['value'].iloc[0] 
+
+    mem_queries = {
+        'Used': 'node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes',
+        'Cache + Buffer': 'node_memory_Buffers_bytes + node_memory_Cached_bytes',
+        'Free': 'node_memory_MemFree_bytes'
+    }
+    
+    mem_df = pd.DataFrame()
+    for label, query in mem_queries.items():
+        data = fetch_prometheus_data(query, start_ts, end_ts)
+        if not data.empty:
+            mem_df[label] = (data['value'] / total_mem) * 100
+            
+    assert not mem_df.empty
+    
+    start_time = mem_df.index[0]
+    time_delta_index = mem_df.index - start_time
+    elapsed_minutes = time_delta_index.total_seconds() / 60
+    mem_df.index = elapsed_minutes
+
+    return mem_df
+
+
+def read_disk_iops_data(start_ts, end_ts):
+    disk_queries = {
+        'Read IOps': 'sum(rate(node_disk_reads_completed_total[1m]))',
+        'Write IOps': 'sum(rate(node_disk_writes_completed_total[1m]))'
+    }
+    
+    disk_df = pd.DataFrame()
+    for label, query in disk_queries.items():
+        data = fetch_prometheus_data(query, start_ts, end_ts)
+        if not data.empty:
+            disk_df[label] = data['value']
+            
+    assert not disk_df.empty
+
+    start_time = disk_df.index[0]
+    time_delta_index = disk_df.index - start_time
+    elapsed_minutes = time_delta_index.total_seconds() / 60
+    disk_df.index = elapsed_minutes
+
+    return disk_df
 
 
 def save_plot(fig, base_directory_name, filename):

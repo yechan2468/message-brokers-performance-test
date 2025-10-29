@@ -313,30 +313,30 @@ def draw_lag_graph(base_directory_name, consumer_data):
     save_plot(fig, base_directory_name, 'lag')
 
 
-def draw_cpu_usage_graph(base_directory_name, resource_usage_data):
-    for broker in VISUALIZATION_BROKERS:
-        data = resource_usage_data[broker]['cpu']
-        fig, ax = plt.subplots(figsize=(12, 6))
-        ax.plot(data['timestamp'], data['cpu_usage'], label="CPU Usage")
-        ax.set_title("CPU Usage Over Time")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("CPU Usage (%)")
-        ax.legend()
-        plt.tight_layout()
-        save_plot(fig, base_directory_name, f'{broker}_cpu_usage')
+# def draw_cpu_usage_graph(base_directory_name, resource_usage_data):
+#     for broker in VISUALIZATION_BROKERS:
+#         data = resource_usage_data[broker]['cpu']
+#         fig, ax = plt.subplots(figsize=(12, 6))
+#         ax.plot(data['timestamp'], data['cpu_usage'], label="CPU Usage")
+#         ax.set_title("CPU Usage Over Time")
+#         ax.set_xlabel("Time")
+#         ax.set_ylabel("CPU Usage (%)")
+#         ax.legend()
+#         plt.tight_layout()
+#         save_plot(fig, base_directory_name, f'{broker}_cpu_usage')
 
 
-def draw_memory_usage_graph(base_directory_name, resource_usage_data):
-    for broker in VISUALIZATION_BROKERS:
-        data = resource_usage_data[broker]['memory']
-        fig, ax = plt.subplots(figsize=(12, 6))
-        ax.plot(data['timestamp'], data['memory_usage'], label="Memory Usage (GiB)")
-        ax.set_title("Memory Usage Over Time")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Memory Usage (GiB)")
-        ax.legend()
-        plt.tight_layout()
-        save_plot(fig, base_directory_name, f'{broker}_memory_usage')
+# def draw_memory_usage_graph(base_directory_name, resource_usage_data):
+#     for broker in VISUALIZATION_BROKERS:
+#         data = resource_usage_data[broker]['memory']
+#         fig, ax = plt.subplots(figsize=(12, 6))
+#         ax.plot(data['timestamp'], data['memory_usage'], label="Memory Usage (GiB)")
+#         ax.set_title("Memory Usage Over Time")
+#         ax.set_xlabel("Time")
+#         ax.set_ylabel("Memory Usage (GiB)")
+#         ax.legend()
+#         plt.tight_layout()
+#         save_plot(fig, base_directory_name, f'{broker}_memory_usage')
 
 
 def draw_producer_processing_time_graph(brokers, base_directory_name, producer_data):
@@ -405,3 +405,80 @@ def _draw_processing_time_graph(brokers, base_directory_name, data, is_producer)
     ax.set_xlabel("Brokers", fontsize=12)
 
     save_plot(fig, base_directory_name, f'{"producer" if is_producer else "consumer"}_processing_time_boxplot')
+
+
+def draw_cpu_usage_graph(brokers, base_directory_name, resource_usage_data):
+    for broker_name in brokers:
+        fig, ax = plt.subplots(figsize=(15, 6))
+
+        cpu_df = resource_usage_data[broker_name]['cpu']
+
+        ax.stackplot(cpu_df.index, 
+                     cpu_df['Busy User'], 
+                     cpu_df['Busy System'], 
+                     cpu_df['Busy Iowait'], 
+                     cpu_df['Busy Other'],
+                     cpu_df['Idle'], 
+                     labels=cpu_df.columns, 
+                     alpha=0.8)
+
+        ax.set_title(f'CPU Usage (%) (Stacked) - {broker_name}')
+        ax.set_ylabel('Percentage (%)')
+        ax.set_xlabel('Time (minute)')
+
+        ax.set_ylim(0, 100)
+        ax.legend(loc='upper right')
+        ax.grid(True, axis='y', linestyle='--')
+
+        fig.tight_layout()
+
+        save_plot(fig, base_directory_name, f'{broker_name}_cpu_usage')
+
+
+def draw_memory_usage_graph(brokers, base_directory_name, resource_usage_data):
+    for broker_name in brokers:
+        mem_df = resource_usage_data[broker_name]['memory']
+
+        fig, ax = plt.subplots(figsize=(15, 6))
+        
+        ax.stackplot(mem_df.index, 
+                     mem_df['Used'], 
+                     mem_df['Cache + Buffer'], 
+                     mem_df['Free'], 
+                     labels=['Used', 'Cache + Buffer', 'Free'], 
+                     alpha=0.8)
+        
+        ax.set_title(f'Memory Usage (%) (Stacked) - {broker_name}')
+        ax.set_ylabel('Percentage (%)')
+        ax.set_xlabel('Time (minute)')
+        
+        ax.set_ylim(0, 100)
+        ax.legend(loc='upper right')
+        ax.grid(True, axis='y', linestyle='--')
+        
+        fig.tight_layout()
+        
+        save_plot(fig, base_directory_name, f'{broker_name}_memory_usage')
+
+
+def draw_disk_iops_graph(brokers, base_directory_name, resource_usage_data):
+    for broker_name in brokers:
+        disk_df = resource_usage_data[broker_name]['disk']
+
+        fig, ax = plt.subplots(figsize=(15, 6))
+        
+        ax.plot(disk_df.index, disk_df['Read IOps'], label='Read IOps', linestyle='-', marker='')
+        ax.plot(disk_df.index, disk_df['Write IOps'], label='Write IOps', linestyle='-', marker='')
+        
+        ax.set_title(f'Disk IOps (Read/Write) - {broker_name}')
+        ax.set_ylabel('IOps (Operations per second)')
+        ax.set_xlabel('Time (minute)')
+        
+        ax.set_ylim(bottom=0) 
+        
+        ax.legend(loc='upper right')
+        ax.grid(True, axis='both', linestyle='--')
+        
+        fig.tight_layout()
+        
+        save_plot(fig, base_directory_name, f'{broker_name}_disk_iops')
