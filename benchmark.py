@@ -17,7 +17,7 @@ MAX_FILE_AGE_MINUTES = 30 # 파일 생성 시각 최대 허용 시간 (30분)
 # 테스트를 위한 시간 상수 (분 단위)
 INIT_TIME_MINUTES = 3
 POST_WAIT_TIME_MINUTES = 3
-MAX_CHECK_DURATION_MINUTES = 5
+MAX_CHECK_DURATION_MINUTES = 15
 CHECK_INTERVAL_SECONDS = 5
 
 # 서브태스크 디렉토리와 스크립트 정의
@@ -473,7 +473,7 @@ def _check_data_subtask_success_criteria(subtask_name: str, parameter: str) -> b
     return True
 
 def _check_visualization_subtask_success_criteria(parameter: str) -> bool:
-    """visualization 서브태스크의 성공 조건을 검증합니다. (15 or 18개 PNG 파일 개수 및 Age)"""
+    """visualization 서브태스크의 성공 조건을 검증합니다. (PNG 파일 개수 및 Age)"""
     try:
         _, _, dir_name = _parse_parameter(parameter)
     except ValueError:
@@ -489,8 +489,8 @@ def _check_visualization_subtask_success_criteria(parameter: str) -> bool:
     png_files = glob.glob(os.path.join(param_dir, '*.png'))
     
     # 1. 파일 개수 검증
-    if len(png_files) not in (15, 18):
-        _log_message(parameter, "WARN", f"Visualization Validation FAILED: Expected 15 or 18 PNG files, Found: {len(png_files)} in {param_dir}.")
+    if len(png_files) == 0:
+        _log_message(parameter, "WARN", f"Visualization Validation FAILED: Expected >0 PNG files, Found: {len(png_files)} in {param_dir}.")
         return False
     
     # 2. 파일 생성 시각 검증

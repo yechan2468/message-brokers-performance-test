@@ -90,7 +90,7 @@ def read_consumer_data(broker, base_directory_name, start_time, end_time):
     result['timestamp'] = pd.to_datetime(result['timestamp'], unit='s')
     result['throughput'] = result['message_size']
     result['processing_time'] = result['processing_time']
-    result['latency'] = result['latency']
+    result['latency'] = result['latency'] * 1_000  # sec -> millisec
     result['lag'] = result['lag']
 
     return result
@@ -168,7 +168,7 @@ def read_cpu_usage_data(start_ts, end_ts):
         'Busy System': 'rate(node_cpu_seconds_total{mode="system"}[1m]) * 100',
         'Busy Iowait': 'rate(node_cpu_seconds_total{mode="iowait"}[1m]) * 100',
         'Busy Other': 'rate(node_cpu_seconds_total{mode=~"nice|irq|softirq|steal|guest.*"}[1m]) * 100', 
-        'Idle': 'rate(node_cpu_seconds_total{mode="idle"}[1m]) * 100'
+        # 'Idle': 'rate(node_cpu_seconds_total{mode="idle"}[1m]) * 100'
     }
     
     cpu_df = pd.DataFrame()
@@ -179,12 +179,15 @@ def read_cpu_usage_data(start_ts, end_ts):
     
     assert not cpu_df.empty
 
-    print(cpu_df)
-
     start_time = cpu_df.index[0]
     time_delta_index = cpu_df.index - start_time
     elapsed_minutes = time_delta_index.total_seconds() / 60
     cpu_df.index = elapsed_minutes
+
+    cpu_df['Busy User'] *= 6
+    cpu_df['Busy System'] *= 6
+    cpu_df['Busy Iowait'] *= 6
+    cpu_df['Busy Other'] *= 6
 
     return cpu_df
 
@@ -237,6 +240,55 @@ def read_disk_iops_data(start_ts, end_ts):
     disk_df.index = elapsed_minutes
 
     return disk_df
+
+
+def read_iowait_data(start_ts, end_ts):
+    """
+    I/O Wait: CPU가 I/O 완료를 기다리는 시간의 비율(%)
+    """
+    iowait_query = {
+        'I/O Wait (%)': 'avg(rate(node_cpu_seconds_total{mode="iowait"}[1m])) * 100'
+    }
+    
+    iowait_df = pd.DataFrame()
+    for label, query in iowait_query.items():
+        data = fetch_prometheus_data(query, start_ts, end_ts)
+        if not data.empty:
+            iowait_df[label] = data['value']
+    
+    assert not iowait_df.empty
+
+    start_time = iowait_df.index[0]
+    time_delta_index = iowait_df.index - start_time
+    elapsed_minutes = time_delta_index.total_seconds() / 60
+    iowait_df.index = elapsed_minutes
+
+    return iowait_df
+
+
+def read_disk_throughput_data(start_ts, end_ts):
+    """
+    Disk Throughput: 초당 읽기/쓰기 바이트 양 (Bytes/sec)
+    """
+    throughput_queries = {
+        'Write Throughput (B/s)': 'sum(rate(node_disk_written_bytes_total[1m]))',
+        'Read Throughput (B/s)': 'sum(rate(node_disk_read_bytes_total[1m]))'
+    }
+    
+    throughput_df = pd.DataFrame()
+    for label, query in throughput_queries.items():
+        data = fetch_prometheus_data(query, start_ts, end_ts)
+        if not data.empty:
+            throughput_df[label] = data['value']
+            
+    assert not throughput_df.empty
+
+    start_time = throughput_df.index[0]
+    time_delta_index = throughput_df.index - start_time
+    elapsed_minutes = time_delta_index.total_seconds() / 60
+    throughput_df.index = elapsed_minutes
+
+    return throughput_df
 
 
 def save_plot(fig, base_directory_name, filename):

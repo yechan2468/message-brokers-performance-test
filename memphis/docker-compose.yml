@@ -94,6 +94,7 @@ services:
       - ./.env
     volumes:
       - ./station-creator.py:/app/station-creator.py
+      - memphis-data:/data
     depends_on:
       broker:
         condition: service_healthy
@@ -181,3 +182,4 @@ networks:
       driver: default
 volumes:
   memphis-postgres-data:
+  memphis-data:

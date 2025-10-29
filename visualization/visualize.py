@@ -37,7 +37,7 @@ def draw_producer_throughput_graph(brokers, base_directory_name, producer_data):
                 ha='center', va='bottom', fontsize=10, color='black')
 
     ax.set_title(f"Producer Throughput", fontsize=14)
-    ax.set_ylabel("Throughput", fontsize=12)
+    ax.set_ylabel("Throughput (messages/sec)", fontsize=12)
     ax.set_xlabel("Brokers", fontsize=12)
     ax.set_ylim(0, max(throughputs) * 1.2)
 
@@ -69,7 +69,7 @@ def draw_consumer_throughput_graph(brokers, base_directory_name, consumer_data):
                 ha='center', va='bottom', fontsize=10, color='black')
 
     ax.set_title(f"Consumer Throughput", fontsize=14)
-    ax.set_ylabel("Throughput", fontsize=12)
+    ax.set_ylabel("Throughput (messages/sec)", fontsize=12)
     ax.set_xlabel("Brokers", fontsize=12)
     ax.set_ylim(0, max(throughputs) * 1.2)
 
@@ -271,17 +271,36 @@ def draw_latency_boxplot(base_directory_name, consumer_data):
         [consumer_data[br][['latency']].assign(Broker=br) for br in consumer_data]
     )
     sns.boxplot(data=latency_data, x='Broker', y='latency', ax=ax, fliersize=2)
+    ax.set_yscale('log')
 
     for broker in consumer_data:
         broker_data = consumer_data[broker]['latency']
+
         stats = broker_data.describe()
-        ax.annotate(f"Mean: {stats['mean']:.2f}\nMedian: {stats['50%']:.2f}\nStddev: {stats['std']:.2f}\nMax: {stats['max']:.2f}\nMin: {stats['min']:.2f}", 
-                    xy=(broker, stats['75%']), xytext=(0, 20), 
+
+        percentiles = broker_data.quantile([0.99, 0.999, 0.9999])
+        p99 = percentiles[0.99]
+        p999 = percentiles[0.999]
+        p9999 = percentiles[0.9999]
+
+        annotation_text = (
+            f"Mean: {stats['mean']:.2f}\n"
+            f"Median: {stats['50%']:.2f}\n"
+            f"Stddev: {stats['std']:.2f}\n"
+            f"Min: {stats['min']:.2f}\n"
+            f"P99: {p99:.2f}\n"
+            f"P99.9: {p999:.2f}\n"
+            f"P99.99: {p9999:.2f}\n"
+            f"Max: {stats['max']:.2f}"
+        )
+
+        ax.annotate(annotation_text, 
+                    xy=(broker, stats['75%']), xytext=(35, 35), 
                     textcoords='offset points', ha='center', fontsize=8)
 
     ax.set_title("Latency Distribution")
     ax.set_xlabel("Broker")
-    ax.set_ylabel("Latency (seconds)")
+    ax.set_ylabel("Latency (ms)")
     plt.tight_layout()
     save_plot(fig, base_directory_name, 'latency')
 
@@ -292,8 +311,10 @@ def draw_latency_histogram(base_directory_name, consumer_data):
     for idx, (broker, data) in enumerate(consumer_data.items()):
         ax = axes[idx] if len(consumer_data) > 1 else axes
         sns.histplot(data['latency'], kde=True, stat='probability', bins=30, ax=ax)
+
+        ax.set_yscale('log')
         ax.set_title(f"{broker} Latency PDF")
-        ax.set_xlabel("Latency (seconds)")
+        ax.set_xlabel("Latency (ms)")
         ax.set_ylabel("Probability")
 
     plt.tight_layout()
@@ -418,7 +439,7 @@ def draw_cpu_usage_graph(brokers, base_directory_name, resource_usage_data):
                      cpu_df['Busy System'], 
                      cpu_df['Busy Iowait'], 
                      cpu_df['Busy Other'],
-                     cpu_df['Idle'], 
+                    #  cpu_df['Idle'], 
                      labels=cpu_df.columns, 
                      alpha=0.8)
 
@@ -463,7 +484,7 @@ def draw_memory_usage_graph(brokers, base_directory_name, resource_usage_data):
 
 def draw_disk_iops_graph(brokers, base_directory_name, resource_usage_data):
     for broker_name in brokers:
-        disk_df = resource_usage_data[broker_name]['disk']
+        disk_df = resource_usage_data[broker_name]['iops']
 
         fig, ax = plt.subplots(figsize=(15, 6))
         
@@ -482,3 +503,54 @@ def draw_disk_iops_graph(brokers, base_directory_name, resource_usage_data):
         fig.tight_layout()
         
         save_plot(fig, base_directory_name, f'{broker_name}_disk_iops')
+
+
+def draw_iowait_graph(brokers, base_directory_name, resource_usage_data):
+    for broker_name in brokers:
+        iowait_df = resource_usage_data[broker_name]['iowait']
+
+        fig, ax = plt.subplots(figsize=(15, 6))
+        
+        ax.plot(iowait_df.index, iowait_df['I/O Wait (%)'], 
+                label='I/O Wait (%)', color='orange', linestyle='-', marker='')
+        
+        ax.set_title(f'Disk I/O Wait Time - {broker_name}')
+        ax.set_ylabel('I/O Wait (%)')
+        ax.set_xlabel('Time (minute)')
+        
+        ax.set_ylim(bottom=0, top=0.1 if iowait_df['I/O Wait (%)'].max() < 100 else None)
+        
+        ax.legend(loc='upper right')
+        ax.grid(True, axis='both', linestyle='--')
+        
+        fig.tight_layout()
+        
+        save_plot(fig, base_directory_name, f'{broker_name}_disk_iowait')
+
+
+def draw_disk_throughput_graph(brokers, base_directory_name, resource_usage_data):
+    for broker_name in brokers:
+        throughput_df = resource_usage_data[broker_name]['throughput']
+        
+        MB_PER_BYTE = 1024 * 1024
+
+        fig, ax = plt.subplots(figsize=(15, 6))
+        
+        ax.plot(throughput_df.index, throughput_df['Write Throughput (B/s)'] / MB_PER_BYTE, 
+                label='Write Throughput (MiB/s)', color='red', linestyle='-', marker='')
+        
+        ax.plot(throughput_df.index, throughput_df['Read Throughput (B/s)'] / MB_PER_BYTE, 
+                label='Read Throughput (MiB/s)', color='blue', linestyle='-', marker='')
+        
+        ax.set_title(f'Disk Throughput (Read/Write) - {broker_name}')
+        ax.set_ylabel('Throughput (MiB/s)') 
+        ax.set_xlabel('Time (minute)')
+        
+        ax.set_ylim(bottom=0) 
+        
+        ax.legend(loc='upper right')
+        ax.grid(True, axis='both', linestyle='--')
+        
+        fig.tight_layout()
+        
+        save_plot(fig, base_directory_name, f'{broker_name}_disk_throughput')

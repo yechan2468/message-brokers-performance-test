@@ -41,10 +41,14 @@ def read_data(brokers, base_directory_name):
         resource_usage_data[broker] = {}
         resource_usage_data[broker]['cpu'] = read_cpu_usage_data(start_time, end_time)
         resource_usage_data[broker]['memory'] = read_memory_usage_data(start_time, end_time)
-        resource_usage_data[broker]['disk'] = read_disk_iops_data(start_time, end_time)
+        resource_usage_data[broker]['iops'] = read_disk_iops_data(start_time, end_time)
+        resource_usage_data[broker]['iowait'] = read_iowait_data(start_time, end_time)
+        resource_usage_data[broker]['throughput'] = read_disk_throughput_data(start_time, end_time)
         assert not resource_usage_data[broker]['cpu'].empty 
         assert not resource_usage_data[broker]['memory'].empty
-        assert not resource_usage_data[broker]['disk'].empty
+        assert not resource_usage_data[broker]['iops'].empty
+        assert not resource_usage_data[broker]['iowait'].empty
+        assert not resource_usage_data[broker]['throughput'].empty
 
         print('done.')
 
@@ -64,11 +68,10 @@ def draw_graphs(brokers, base_directory_name, producer_data, consumer_data, reso
     draw_cpu_usage_graph(brokers, base_directory_name, resource_usage_data)
     draw_memory_usage_graph(brokers, base_directory_name, resource_usage_data)
     draw_disk_iops_graph(brokers, base_directory_name, resource_usage_data)
+    draw_iowait_graph(brokers, base_directory_name, resource_usage_data)
+    draw_disk_throughput_graph(brokers, base_directory_name, resource_usage_data)
 
     # draw_lag_graph(consumer_data)
-
-    # draw_cpu_usage_graph(resource_usage_data)
-    # draw_memory_usage_graph(resource_usage_data)
 
 
 def main():
