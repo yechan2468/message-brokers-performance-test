@@ -17,6 +17,7 @@ if os.getenv('DELIVERY_MODE') == 'EXACTLY_ONCE':
         VISUALIZATION_BROKERS.remove('rabbitmq')
 VISUALIZATION_RESULTS_DIR = os.getenv('VISUALIZATION_RESULTS_DIR')
 PRODUCER_RESULT_CSV_FILENAME = os.getenv('PRODUCER_RESULT_CSV_FILENAME')
+BENCHMARK_DURATION_MINUTES = float(os.getenv('BENCHMARK_DURATION_MINUTES'))
 
 
 def read_benchmark_time(broker, base_directory_name):
@@ -184,7 +185,8 @@ def read_cpu_usage_data(start_ts, end_ts):
     elapsed_minutes = time_delta_index.total_seconds() / 60
     cpu_df.index = elapsed_minutes
 
-    core_multiplier = 24 / os.getenv('BROKER_COMMON_CPU_LIMIT')
+    # core_multiplier = 24 / float(os.getenv('BROKER_COMMON_CPU_LIMIT'))
+    core_multiplier=1
     cpu_df['Busy User'] *= core_multiplier
     cpu_df['Busy System'] *= core_multiplier
     cpu_df['Busy Iowait'] *= core_multiplier
@@ -290,6 +292,29 @@ def read_disk_throughput_data(start_ts, end_ts):
     throughput_df.index = elapsed_minutes
 
     return throughput_df
+
+def _create_zero_df(columns):
+    time_range = pd.Series(range(0, int(BENCHMARK_DURATION_MINUTES) + 1))
+    elapsed_minutes = time_range.astype(float)
+    
+    df = pd.DataFrame(0.0, index=elapsed_minutes, columns=columns)
+    df.index.name = None
+    
+    return df
+
+def add_dummy_resource_data(resource_data_for_dir, broker):
+    CPU_COLS = ['Busy User', 'Busy System', 'Busy Iowait', 'Busy Other']
+    MEM_COLS = ['Used', 'Cache + Buffer', 'Free']
+    IOPS_COLS = ['Read IOps', 'Write IOps']
+    IOWAIT_COLS = ['I/O Wait (%)']
+    THROUGHPUT_COLS = ['Write Throughput (B/s)', 'Read Throughput (B/s)']
+    
+    resource_data_for_dir[broker] = {}
+    resource_data_for_dir[broker]['cpu'] = _create_zero_df(CPU_COLS)
+    resource_data_for_dir[broker]['memory'] = _create_zero_df(MEM_COLS)
+    resource_data_for_dir[broker]['iops'] = _create_zero_df(IOPS_COLS)
+    resource_data_for_dir[broker]['iowait'] = _create_zero_df(IOWAIT_COLS)
+    resource_data_for_dir[broker]['throughput'] = _create_zero_df(THROUGHPUT_COLS)
 
 
 def save_plot(fig, base_directory_name, filename):
