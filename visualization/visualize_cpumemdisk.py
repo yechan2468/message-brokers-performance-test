@@ -31,11 +31,11 @@ def _get_metric_data(df, metric_type):
     """지표 유형에 따라 그래프에 사용할 데이터를 반환"""
     if df.empty:
         if metric_type == 'cpu':
-            return pd.Series(dtype=float), 'Total CPU Usage (%)'
+            return pd.Series(dtype=float), 'CPU Usage (%)'
         elif metric_type == 'memory':
-            return pd.Series(dtype=float), 'Total Used Memory (%)'
+            return pd.Series(dtype=float), 'Memory Used + Cache + Buffer(%)'
         elif metric_type == 'iowait':
-            return pd.Series(dtype=float), 'I/O Wait (%)'
+            return pd.Series(dtype=float), 'I/O Wait Time (%)'
         elif metric_type == 'iops':
             return pd.Series(dtype=float), 'Write IOps (Operations per second)'
         elif metric_type == 'throughput':
