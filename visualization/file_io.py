@@ -318,6 +318,7 @@ def add_dummy_resource_data(resource_data_for_dir, broker):
 
 
 def save_plot(fig, base_directory_name, filename):
+    os.makedirs(os.path.join(VISUALIZATION_RESULTS_DIR, base_directory_name), exist_ok=True)
     filepath = os.path.join(VISUALIZATION_RESULTS_DIR, base_directory_name, f'{filename}-{datetime.now().strftime("%m%d_%H%M%S")}.png')
     fig.savefig(filepath, bbox_inches='tight')
     plt.close(fig)
