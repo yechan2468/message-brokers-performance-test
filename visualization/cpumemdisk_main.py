@@ -24,11 +24,13 @@ COMPARISON_GROUPS = {
         },
     },
     'producer_consumer_count': {
-        'directories': ['1-1-1-AT_LEAST_ONCE', '1-3-3-AT_LEAST_ONCE', '5-3-3-AT_LEAST_ONCE'],
+        'directories': ['1-1-1-AT_LEAST_ONCE', '3-1-1-AT_LEAST_ONCE', '1-3-3-AT_LEAST_ONCE', '5-3-3-AT_LEAST_ONCE', '3-5-5-AT_LEAST_ONCE'],
         'labels': {
             '1-1-1-AT_LEAST_ONCE': '#prod=1, #cons=1',
             '1-3-3-AT_LEAST_ONCE': '#prod=1, #cons=3',
-            '5-3-3-AT_LEAST_ONCE': '#prod=5, #cons=3'
+            '3-1-1-AT_LEAST_ONCE': '#prod=3, #cons=1',
+            '5-3-3-AT_LEAST_ONCE': '#prod=5, #cons=3',
+            '3-5-5-AT_LEAST_ONCE': '#prod=3, #cons=5'
         },
     },
     'partition_count': {
@@ -80,10 +82,12 @@ def main():
         '1-1-1-AT_MOST_ONCE',
         '1-1-1-EXACTLY_ONCE',
         '1-3-3-AT_LEAST_ONCE',
+        '3-1-1-AT_LEAST_ONCE',
         '5-3-3-AT_LEAST_ONCE',
+        '3-5-5-AT_LEAST_ONCE',
         '2-2-2-AT_LEAST_ONCE',
         '4-4-4-AT_LEAST_ONCE',
-        '8-8-8-AT_LEAST_ONCE'
+        '8-8-8-AT_LEAST_ONCE',
     ]
 
     for group_names in COMPARISON_GROUPS:

@@ -19,8 +19,10 @@ LINE_STYLES = {
     '1-1-1-AT_LEAST_ONCE': '-',
     '1-1-1-AT_MOST_ONCE': '--',
     '1-1-1-EXACTLY_ONCE': ':',
-    '1-3-3-AT_LEAST_ONCE': '--',
+    '1-3-3-AT_LEAST_ONCE': '-.',
+    '3-1-1-AT_LEAST_ONCE': (0, [5, 3, 1, 3, 1, 3]),
     '5-3-3-AT_LEAST_ONCE': ':',
+    '3-5-5-AT_LEAST_ONCE': '--',
     '2-2-2-AT_LEAST_ONCE': '--',
     '4-4-4-AT_LEAST_ONCE': ':',
     '8-8-8-AT_LEAST_ONCE': '-.'
@@ -33,7 +35,7 @@ def _get_metric_data(df, metric_type):
         if metric_type == 'cpu':
             return pd.Series(dtype=float), 'CPU Usage (%)'
         elif metric_type == 'memory':
-            return pd.Series(dtype=float), 'Memory Used + Cache + Buffer(%)'
+            return pd.Series(dtype=float), 'Memory Used (%)'
         elif metric_type == 'iowait':
             return pd.Series(dtype=float), 'I/O Wait Time (%)'
         elif metric_type == 'iops':
@@ -43,21 +45,17 @@ def _get_metric_data(df, metric_type):
         return pd.Series(), ''
 
     if metric_type == 'cpu':
-        # CPU 사용량: Busy User, System, Iowait, Other의 합산
         return df['Busy User'] + df['Busy System'] + df['Busy Iowait'] + df['Busy Other'], 'Total CPU Usage (%)'
     elif metric_type == 'memory':
-        # 메모리 사용량: Used와 Cache + Buffer의 합산
-        return df['Used'] + df['Cache + Buffer'], 'Total Used Memory (%)'
+        return df['Used'], 'Total Used Memory (%)'
     elif metric_type == 'iowait':
         return df['I/O Wait (%)'], 'I/O Wait (%)'
     elif metric_type == 'iops':
-        # Write IOps만 반환
         return df['Write IOps'], 'Write IOps (Operations per second)'
     elif metric_type == 'throughput':
-        # Disk Write Throughput만 반환
         MB_PER_BYTE = 1024 * 1024
         return df['Write Throughput (B/s)'] / MB_PER_BYTE, 'Write Throughput (MiB/s)'
-    return pd.Series(), '' # 에러 방지
+    return pd.Series(),
 
 
 def _plot_resource_comparison(
@@ -137,7 +135,7 @@ def _plot_resource_comparison(
     # 브로커별, 디렉토리별로 라인을 그립니다.
     for broker in brokers:
         for directory in directories:
-            if directory not in all_resource_data or broker not in all_resource_data[directory]: continue
+            # if directory not in all_resource_data or broker not in all_resource_data[directory]: continue
 
             df = all_resource_data[directory][broker].get(metric_type, pd.DataFrame())
             if df.empty: continue
